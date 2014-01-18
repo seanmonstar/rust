@@ -45,7 +45,7 @@ fn socket_addr_as_sockaddr<T>(addr: SocketAddr, f: |*sockaddr| -> T) -> T {
     (|| {
         f(addr)
     }).finally(|| {
-        unsafe { libc::free(addr) };
+        unsafe { libc::free(addr as *mut c_void) };
     })
 }
 
@@ -130,7 +130,7 @@ fn socket_name(sk: SocketNameKind, handle: *c_void) -> Result<SocketAddr, IoErro
             0 => Ok(sockaddr_to_socket_addr(name)),
             n => Err(uv_error_to_io_error(UvError(n)))
         };
-        libc::free(name);
+        libc::free(name as *mut c_void);
         ret
     }
 }
