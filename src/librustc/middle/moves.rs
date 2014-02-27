@@ -382,6 +382,13 @@ impl VisitContext {
                 }
             }
 
+            ExprSlice(base, from, to) => {     // base[from..to]
+                let mut args = ~[];
+                from.map(|x| args.push(x));
+                to.map(|x| args.push(x));
+                self.use_overloaded_operator(expr, base, args);
+            }
+
             ExprCall(callee, ref args) => {    // callee(args)
                 // Figure out whether the called function is consumed.
                 let mode = match ty::get(ty::expr_ty(self.tcx, callee)).sty {

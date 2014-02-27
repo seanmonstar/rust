@@ -732,6 +732,11 @@ pub fn walk_expr<E: Clone, V: Visitor<E>>(visitor: &mut V, expression: &Expr, en
             visitor.visit_expr(main_expression, env.clone());
             visitor.visit_expr(index_expression, env.clone())
         }
+        ExprSlice(main_expression, from_optional_expression, to_optional_expression) => {
+            visitor.visit_expr(main_expression, env.clone());
+            walk_expr_opt(visitor, from_optional_expression, env.clone());
+            walk_expr_opt(visitor, to_optional_expression, env.clone())
+        }
         ExprPath(ref path) => {
             visitor.visit_path(path, expression.id, env.clone())
         }

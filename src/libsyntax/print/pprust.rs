@@ -1465,6 +1465,20 @@ pub fn print_expr(s: &mut State, expr: &ast::Expr) -> io::IoResult<()> {
         try!(print_expr(s, index));
         try!(word(&mut s.s, "]"));
       }
+      ast::ExprSlice(expr, left, right) => {
+        try!(print_expr(s, expr));
+        try!(word(&mut s.s, "["));
+        match left {
+            Some(x) => try!(print_expr(s, x)),
+            _ => ()
+        }
+        try!(word(&mut s.s, ".."));
+        match right {
+            Some(x) => try!(print_expr(s, x)),
+            _ => ()
+        }
+        try!(word(&mut s.s, "]"));
+      }
       ast::ExprPath(ref path) => try!(print_path(s, path, true)),
       ast::ExprBreak(opt_ident) => {
         try!(word(&mut s.s, "break"));

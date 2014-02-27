@@ -3146,7 +3146,50 @@ pub fn check_expr_with_unifier(fcx: @FnCtxt,
                   }
               }
           }
-       }
+      }
+      ast::ExprSlice(base, from, to) => {
+          check_expr(fcx, base);
+          from.map(|x| check_expr(fcx, x));
+          to.map(|x| check_expr(fcx, x));
+
+          let raw_base_t = fcx.expr_ty(base);
+          if ty::type_is_error(raw_base_t) || ty::type_is_bot(raw_base_t) {
+              fcx.write_ty(id, raw_base_t);
+          } else {
+              let (base_t, _) = do_autoderef(fcx, expr.span, raw_base_t);
+
+              let (methodname, args) = match (from, to) {
+                (Some(from), Some(to)) => ("slice", ~[base, from, to]),
+                (Some(from), None) => ("slice_from", ~[base, from]),
+                (None, Some(to)) => ("slice_to", ~[base, to]),
+                (None, None) => ("as_slice", ~[base])
+              };
+              let resolved = structurally_resolved_type(fcx,
+                                                        expr.span,
+                                                        raw_base_t);
+              let error_message = || {
+                fcx.type_error_message(expr.span,
+                                       |actual| {
+                                        format!("cannot slice a value \
+                                              of type `{}`",
+                                             actual)
+                                       },
+                                       base_t,
+                                       None);
+              };
+              let ret_ty = lookup_op_method(fcx,
+                                            expr,
+                                            resolved,
+                                            token::intern(methodname),
+                                            tcx.lang_items.index_trait(),
+                                            args,
+                                            AutoderefReceiver,
+                                            error_message);
+              fcx.write_ty(id, ret_ty);
+          }
+      }
+
+
     }
 
     debug!("type of expr({}) {} is...", expr.id,

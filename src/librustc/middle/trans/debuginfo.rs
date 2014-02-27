@@ -2550,6 +2550,12 @@ fn populate_scope_map(cx: &CrateContext,
                 walk_expr(cx, rhs, scope_stack, scope_map);
             }
 
+            ast::ExprSlice(expr, from, to) => {
+                walk_expr(cx, expr, scope_stack, scope_map);
+                from.map(|x| walk_expr(cx, x, scope_stack, scope_map));
+                to.map(|x| walk_expr(cx, x, scope_stack, scope_map));
+            }
+
             ast::ExprVec(ref init_expressions, _) |
             ast::ExprTup(ref init_expressions)    => {
                 for ie in init_expressions.iter() {

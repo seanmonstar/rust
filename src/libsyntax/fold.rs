@@ -813,6 +813,11 @@ pub fn noop_fold_expr<T: Folder>(e: @Expr, folder: &mut T) -> @Expr {
         ExprIndex(el, er) => {
             ExprIndex(folder.fold_expr(el), folder.fold_expr(er))
         }
+        ExprSlice(el, left, right) => {
+            ExprSlice(folder.fold_expr(el),
+                      left.map(|x| folder.fold_expr(x)),
+                      right.map(|x| folder.fold_expr(x)))
+        }
         ExprPath(ref pth) => ExprPath(folder.fold_path(pth)),
         ExprLogLevel => ExprLogLevel,
         ExprBreak(opt_ident) => ExprBreak(opt_ident.map(|x| folder.fold_ident(x))),

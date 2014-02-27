@@ -3378,6 +3378,7 @@ pub fn expr_kind(tcx: ctxt,
             LvalueExpr
         }
 
+        ast::ExprSlice(..) |
         ast::ExprCall(..) |
         ast::ExprMethodCall(..) |
         ast::ExprStruct(..) |

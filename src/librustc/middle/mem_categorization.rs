@@ -450,7 +450,7 @@ impl<TYPER:Typer> MemCategorizationContext<TYPER> {
             Ok(self.cat_field(expr, base_cmt, f_name, expr_ty))
           }
 
-          ast::ExprIndex(base, _) => {
+          ast::ExprIndex(base, _) | ast::ExprSlice(base, _, _) => {
             if self.typer.is_method_call(expr.id) {
                 return Ok(self.cat_rvalue_node(expr.id(), expr.span(), expr_ty));
             }

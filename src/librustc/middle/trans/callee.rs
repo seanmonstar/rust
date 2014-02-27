@@ -746,7 +746,7 @@ pub fn trans_call_inner<'a>(
 pub enum CallArgs<'a> {
     ArgExprs(&'a [@ast::Expr]),
     // HACK used only by trans_overloaded_op.
-    ArgAutorefSecond(&'a ast::Expr, Option<&'a ast::Expr>),
+    ArgAutorefRest(&'a ast::Expr, &'a [Option<&'a ast::Expr>]),
     ArgVals(&'a [ValueRef])
 }
 
@@ -786,7 +786,7 @@ fn trans_args<'a>(cx: &'a Block<'a>,
                 }));
             }
         }
-        ArgAutorefSecond(arg_expr, arg2) => {
+        ArgAutorefRest(arg_expr, args) => {
             assert!(!variadic);
 
             llargs.push(unpack_result!(bcx, {
@@ -795,18 +795,20 @@ fn trans_args<'a>(cx: &'a Block<'a>,
                                DontAutorefArg)
             }));
 
-            match arg2 {
-                Some(arg2_expr) => {
-                    assert_eq!(arg_tys.len(), 2);
-
-                    llargs.push(unpack_result!(bcx, {
-                        trans_arg_expr(bcx, arg_tys[1], arg2_expr,
-                                       arg_cleanup_scope,
-                                       DoAutorefArg)
-                    }));
+            for (i, arg) in args.iter().enumerate() {
+                match arg {
+                    &Some(expr) => {
+                        llargs.push(unpack_result!(bcx, {
+                            trans_arg_expr(bcx, arg_tys[i], expr,
+                                           arg_cleanup_scope,
+                                           DoAutorefArg)
+                        }));
+                    }
+                    &None => ()
                 }
-                None => assert_eq!(arg_tys.len(), 1)
             }
+
+            assert_eq!(arg_tys.len(), llargs.len() - 1);
         }
         ArgVals(vs) => {
             llargs.push_all(vs);

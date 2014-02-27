@@ -24,7 +24,7 @@ use ast::{DeclLocal, DefaultBlock, UnDeref, BiDiv, EMPTY_CTXT, EnumDef, Explicit
 use ast::{Expr, Expr_, ExprAddrOf, ExprMatch, ExprAgain};
 use ast::{ExprAssign, ExprAssignOp, ExprBinary, ExprBlock, ExprBox};
 use ast::{ExprBreak, ExprCall, ExprCast};
-use ast::{ExprField, ExprFnBlock, ExprIf, ExprIndex};
+use ast::{ExprField, ExprFnBlock, ExprIf, ExprIndex, ExprSlice};
 use ast::{ExprLit, ExprLogLevel, ExprLoop, ExprMac};
 use ast::{ExprMethodCall, ExprParen, ExprPath, ExprProc};
 use ast::{ExprRepeat, ExprRet, ExprStruct, ExprTup, ExprUnary};
@@ -1702,6 +1702,10 @@ impl Parser {
         ExprIndex(expr, idx)
     }
 
+    pub fn mk_slice(&mut self, expr: @Expr, from: @Expr, to: @Expr) -> ast::Expr_ {
+        ExprSlice(expr, Some(from), Some(to))
+    }
+
     pub fn mk_field(&mut self, expr: @Expr, ident: Ident, tys: ~[P<Ty>]) -> ast::Expr_ {
         ExprField(expr, ident, tys)
     }
@@ -2025,14 +2029,22 @@ impl Parser {
                 e = self.mk_expr(lo, hi, nd);
               }
 
-              // expr[...]
+              // expr[...] or expr[a..b]
               token::LBRACKET => {
                 self.bump();
                 let ix = self.parse_expr();
-                hi = self.span.hi;
-                self.commit_expr_expecting(ix, token::RBRACKET);
-                let index = self.mk_index(e, ix);
-                e = self.mk_expr(lo, hi, index)
+                // slice
+                if self.eat(&token::DOTDOT) {
+                  let to = self.parse_expr();
+                  hi = self.span.hi;
+                  let slice = self.mk_slice(e, ix, to);
+                  e = self.mk_expr(lo, hi, slice);
+                } else {
+                  hi = self.span.hi;
+                  self.commit_expr_expecting(ix, token::RBRACKET);
+                  let index = self.mk_index(e, ix);
+                  e = self.mk_expr(lo, hi, index)
+                }
               }
 
               _ => return e

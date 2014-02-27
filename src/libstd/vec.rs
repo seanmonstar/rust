@@ -111,8 +111,9 @@ use cmp;
 use default::Default;
 use fmt;
 use iter::*;
-use num::{CheckedAdd, Saturating, checked_next_power_of_two, div_rem};
+use num::{Int, Unsigned, CheckedAdd, Saturating, checked_next_power_of_two, div_rem};
 use option::{None, Option, Some};
+use ops;
 use ptr;
 use ptr::RawPtr;
 use rt::global_heap::{malloc_raw, realloc_raw, exchange_free};
@@ -122,7 +123,8 @@ use mem::size_of;
 use kinds::marker;
 use uint;
 use unstable::finally::try_finally;
-use raw::{Repr, Slice, Vec};
+use raw::{Repr, Vec};
+use raw::Slice;
 
 /**
  * Creates and initializes an owned vector.
@@ -731,6 +733,26 @@ pub mod traits {
 
 #[cfg(test)]
 pub mod traits {}
+
+impl<'a, T, R:Vector<T>> ops::Slice<uint, &'a R> for R {
+    fn slice(&'a self, from: &uint, to: &uint) -> &'a R {
+        assert!(from <= to);
+        assert!(to <= &1);
+        self
+    }
+
+    fn slice_from(&'a self, from: &uint) -> R {
+        self.slice(from, &1)
+    }
+
+    fn slice_to(&'a self, to: &uint) -> R {
+        self.slice(&0, to)
+    }
+
+    fn as_slice(&'a self) -> R {
+        self.slice(&0, &1)
+    }
+}
 
 /// Any vector that can be represented as a slice.
 pub trait Vector<T> {

@@ -547,7 +547,7 @@ fn visit_expr(v: &mut LivenessVisitor, expr: &Expr, this: @IrMaps) {
       ExprAgain(_) | ExprLit(_) | ExprRet(..) | ExprBlock(..) |
       ExprAssign(..) | ExprAssignOp(..) | ExprMac(..) |
       ExprStruct(..) | ExprRepeat(..) | ExprParen(..) |
-      ExprInlineAsm(..) | ExprBox(..) => {
+      ExprInlineAsm(..) | ExprBox(..) | ExprSlice(..) => {
           visit::walk_expr(v, expr, this);
       }
     }
@@ -1248,6 +1248,12 @@ impl Liveness {
             self.propagate_through_exprs([l, r], succ)
           }
 
+          ExprSlice(base, l, r) => {
+            self.propagate_through_expr(base, succ);
+            self.propagate_through_opt_expr(l, succ);
+            self.propagate_through_opt_expr(r, succ)
+          }
+
           ExprAddrOf(_, e) |
           ExprCast(e, _) |
           ExprUnary(_, e) |
@@ -1532,7 +1538,7 @@ fn check_expr(this: &mut Liveness, expr: &Expr) {
       ExprCall(..) | ExprMethodCall(..) | ExprIf(..) | ExprMatch(..) |
       ExprWhile(..) | ExprLoop(..) | ExprIndex(..) | ExprField(..) |
       ExprVstore(..) | ExprVec(..) | ExprTup(..) | ExprLogLevel |
-      ExprBinary(..) |
+      ExprBinary(..) | ExprSlice(..) |
       ExprCast(..) | ExprUnary(..) | ExprRet(..) | ExprBreak(..) |
       ExprAgain(..) | ExprLit(_) | ExprBlock(..) |
       ExprMac(..) | ExprAddrOf(..) | ExprStruct(..) | ExprRepeat(..) |

@@ -550,6 +550,7 @@ pub enum Expr_ {
     ExprAssignOp(BinOp, @Expr, @Expr),
     ExprField(@Expr, Ident, ~[P<Ty>]),
     ExprIndex(@Expr, @Expr),
+    ExprSlice(@Expr, Option<@Expr>, Option<@Expr>),
 
     /// Expression that looks like a "name". For example,
     /// `std::vec::from_elem::<uint>` is an ExprPath that's the "name" part

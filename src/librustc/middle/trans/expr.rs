@@ -785,17 +785,37 @@ fn trans_rvalue_dps_unadjusted<'a>(bcx: &'a Block<'a>,
         ast::ExprBinary(_, lhs, rhs) => {
             // if not overloaded, would be RvalueDatumExpr
             trans_overloaded_op(bcx, expr, lhs,
-                                Some(&*rhs), expr_ty(bcx, expr), dest)
+                                &[Some(&*rhs)], expr_ty(bcx, expr), dest)
         }
         ast::ExprUnary(_, subexpr) => {
             // if not overloaded, would be RvalueDatumExpr
             trans_overloaded_op(bcx, expr, subexpr,
-                                None, expr_ty(bcx, expr), dest)
+                                &[None], expr_ty(bcx, expr), dest)
         }
         ast::ExprIndex(base, idx) => {
             // if not overloaded, would be RvalueDatumExpr
             trans_overloaded_op(bcx, expr, base,
-                                Some(&*idx), expr_ty(bcx, expr), dest)
+                                &[Some(&*idx)], expr_ty(bcx, expr), dest)
+        }
+        ast::ExprSlice(base, from, to) => {
+            match (from, to) {
+                (Some(from), Some(to)) => {
+                    trans_overloaded_op(bcx, expr, base,
+                                        &[Some(&*from), Some(&*to)], expr_ty(bcx, expr), dest)
+                }
+                (Some(from), None) => {
+                    trans_overloaded_op(bcx, expr, base,
+                                        &[Some(&*from), None], expr_ty(bcx, expr), dest)
+                }
+                (None, Some(to)) => {
+                    trans_overloaded_op(bcx, expr, base,
+                                        &[None, Some(&*to)], expr_ty(bcx, expr), dest)
+                },
+                (None, None) => {
+                    trans_overloaded_op(bcx, expr, base,
+                                        &[None], expr_ty(bcx, expr), dest)
+                }
+            }
         }
         ast::ExprCast(val, _) => {
             // DPS output mode means this is a trait cast:
@@ -1491,7 +1511,7 @@ fn trans_overloaded_op<'a, 'b>(
                        bcx: &'a Block<'a>,
                        expr: &ast::Expr,
                        rcvr: &'b ast::Expr,
-                       arg: Option<&'b ast::Expr>,
+                       args: &'b [Option<&'b ast::Expr>],
                        ret_ty: ty::t,
                        dest: Dest)
                        -> &'a Block<'a> {
@@ -1506,7 +1526,7 @@ fn trans_overloaded_op<'a, 'b>(
                                                           rcvr,
                                                           arg_cleanup_scope)
                              },
-                             callee::ArgAutorefSecond(rcvr, arg),
+                             callee::ArgAutorefRest(rcvr, args),
                              Some(dest)).bcx
 }
 

@@ -231,6 +231,7 @@ lets_do_this! {
     ShlTraitLangItem,                "shl",                     shl_trait;
     ShrTraitLangItem,                "shr",                     shr_trait;
     IndexTraitLangItem,              "index",                   index_trait;
+    SliceTraitLangItem,              "slice",                   slice_trait;
 
     EqTraitLangItem,                 "eq",                      eq_trait;
     OrdTraitLangItem,                "ord",                     ord_trait;

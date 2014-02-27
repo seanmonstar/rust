@@ -464,6 +464,20 @@ pub trait Index<Index,Result> {
     fn index(&self, index: &Index) -> Result;
 }
 
+/**
+ *
+ * The `Slice` trait used to specify the functionality of slicing operations
+ * like `arr[from..to]`.
+ *
+ */
+#[lang="slice"]
+pub trait Slice<Index,Result> {
+    fn slice(&self, from: &Index, to: &Index) -> Result;
+    fn slice_from(&self, from: &Index) -> Result;
+    fn slice_to(&self, to: &Index) -> Result;
+    fn as_slice(&self) -> Result;
+}
+
 #[cfg(test)]
 mod bench {
     extern crate test;

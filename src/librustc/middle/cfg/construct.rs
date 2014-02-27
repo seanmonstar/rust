@@ -393,6 +393,13 @@ impl CFGBuilder {
                 self.straightline(expr, pred, [l, r])
             }
 
+            ast::ExprSlice(base, l, r) => {
+                let mut exprs = ~[base];
+                l.map(|x| exprs.push(x));
+                r.map(|x| exprs.push(x));
+                self.straightline(expr, pred, exprs)
+            }
+
             ast::ExprBox(p, e) => {
                 self.straightline(expr, pred, [p, e])
             }

@@ -611,6 +611,12 @@ impl<'a, O:DataFlowOperator> PropagationContext<'a, O> {
                 self.walk_exprs([l, r], in_out, loop_scopes);
             }
 
+            ast::ExprSlice(base, from, to) => {
+                self.walk_expr(base, in_out, loop_scopes);
+                self.walk_opt_expr(from, in_out, loop_scopes);
+                self.walk_opt_expr(to, in_out, loop_scopes);
+            }
+
             ast::ExprLogLevel |
             ast::ExprLit(..) |
             ast::ExprPath(..) => {}
