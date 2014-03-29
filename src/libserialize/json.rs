@@ -12,7 +12,6 @@
 // Copyright (c) 2011 Google Inc.
 
 #![forbid(non_camel_case_types)]
-#![allow(missing_doc)]
 
 /*!
 JSON parsing and serialization
@@ -89,44 +88,6 @@ let to_encode_object = ~"example of string to encode";
 let encoded_str: ~str = json::Encoder::str_encode(&to_encode_object);
 ```
 
-JSON API provide an enum `json::Json` and a trait `ToJson` to encode object.
-The trait `ToJson` encode object into a container `json::Json` and the API provide writer
-to encode them into a stream or a string ...
-
-When using `ToJson` the `Encodable` trait implementation is not mandatory.
-
-A basic `ToJson` example using a TreeMap of attribute name / attribute value:
-
-
-```rust
-extern crate collections;
-extern crate serialize;
-
-use serialize::json;
-use serialize::json::ToJson;
-use collections::TreeMap;
-
-pub struct MyStruct  {
-    attr1: u8,
-    attr2: ~str,
-}
-
-impl ToJson for MyStruct {
-    fn to_json( &self ) -> json::Json {
-        let mut d = ~TreeMap::new();
-        d.insert(~"attr1", self.attr1.to_json());
-        d.insert(~"attr2", self.attr2.to_json());
-        json::Object(d)
-    }
-}
-
-fn main() {
-    let test2: MyStruct = MyStruct {attr1: 1, attr2:~"test"};
-    let tjson: json::Json = test2.to_json();
-    let json_str: ~str = tjson.to_str();
-}
-```
-
 To decode a JSON string using `Decodable` trait :
 
 ```rust
@@ -140,11 +101,31 @@ pub struct MyStruct  {
 }
 
 fn main() {
-    let json_str_to_decode: ~str =
-            ~"{\"attr1\":1,\"attr2\":\"toto\"}";
-    let json_object = json::from_str(json_str_to_decode);
-    let mut decoder = json::Decoder::new(json_object.unwrap());
+    let json_str_to_decode = ~"{\"attr1\":1,\"attr2\":\"toto\"}";
+    let mut decoder = json::Decoder::new(json_str_to_decode);
     let decoded_object: MyStruct = match Decodable::decode(&mut decoder) {
+        Ok(v) => v,
+        Err(e) => fail!("Decoding error: {}", e)
+    }; // create the final object
+}
+```
+
+Two convenience functions are provided to decode into an object: `from_str` and
+`from_reader`. The above example can also be written like so:
+
+```rust
+extern crate serialize;
+use serialize::{json, Decodable};
+
+#[deriving(Decodable)]
+pub struct MyStruct  {
+     attr1: u8,
+     attr2: ~str,
+}
+
+fn main() {
+    let json_str = ~"{\"attr1\":1,\"attr2\":\"toto\"}";
+    let decoded_object: MyStruct = match json::from_str(json_str) {
         Ok(v) => v,
         Err(e) => fail!("Decoding error: {}", e)
     }; // create the final object
@@ -166,66 +147,22 @@ use serialize::{json, Encodable, Decodable};
  pub struct TestStruct1  {
     data_int: u8,
     data_str: ~str,
-    data_vector: ~[u8],
+    data_vector: Vec<u8>,
  }
 
 // To serialize use the `json::str_encode` to encode an object in a string.
 // It calls the generated `Encodable` impl.
 fn main() {
-    let to_encode_object = TestStruct1
-         {data_int: 1, data_str:~"toto", data_vector:~[2,3,4,5]};
+    let to_encode_object = TestStruct1{
+        data_int: 1,
+        data_str: ~"toto",
+        data_vector: vec![2,3,4,5]
+    };
     let encoded_str: ~str = json::Encoder::str_encode(&to_encode_object);
 
     // To deserialize use the `json::from_str` and `json::Decoder`
 
-    let json_object = json::from_str(encoded_str);
-    let mut decoder = json::Decoder::new(json_object.unwrap());
-    let decoded1: TestStruct1 = Decodable::decode(&mut decoder).unwrap(); // create the final object
-}
-```
-
-## Using `ToJson`
-
-This example use the ToJson impl to deserialize the JSON string.
-Example of `ToJson` trait implementation for TestStruct1.
-
-```rust
-extern crate serialize;
-extern crate collections;
-
-use serialize::json::ToJson;
-use serialize::{json, Encodable, Decodable};
-use collections::TreeMap;
-
-#[deriving(Decodable, Encodable)] // generate Decodable, Encodable impl.
-pub struct TestStruct1  {
-    data_int: u8,
-    data_str: ~str,
-    data_vector: ~[u8],
-}
-
-impl ToJson for TestStruct1 {
-    fn to_json( &self ) -> json::Json {
-        let mut d = ~TreeMap::new();
-        d.insert(~"data_int", self.data_int.to_json());
-        d.insert(~"data_str", self.data_str.to_json());
-        d.insert(~"data_vector", self.data_vector.to_json());
-        json::Object(d)
-    }
-}
-
-fn main() {
-    // Serialization using our impl of to_json
-
-    let test2: TestStruct1 = TestStruct1 {data_int: 1, data_str:~"toto", data_vector:~[2,3,4,5]};
-    let tjson: json::Json = test2.to_json();
-    let json_str: ~str = tjson.to_str();
-
-    // Deserialize like before.
-
-    let mut decoder = json::Decoder::new(json::from_str(json_str).unwrap());
-    // create the final object
-    let decoded2: TestStruct1 = Decodable::decode(&mut decoder).unwrap();
+    let decoded1: TestStruct1 = json::from_str(encoded_str).unwrap(); // create the final object
 }
 ```
 
@@ -239,6 +176,7 @@ use std::io::MemWriter;
 use std::num;
 use std::str;
 use std::fmt;
+use std::vec::Vec;
 
 use Encodable;
 use collections::TreeMap;
@@ -254,7 +192,7 @@ pub enum Json {
     Null,
 }
 
-pub type List = ~[Json];
+pub type List = Vec<Json>;
 pub type Object = TreeMap<~str, Json>;
 
 #[deriving(Eq, Show)]
@@ -299,13 +237,27 @@ fn spaces(n: uint) -> ~str {
 /// A structure for implementing serialization to JSON.
 pub struct Encoder<'a> {
     priv wr: &'a mut io::Writer,
+    priv spaces: uint,
+    priv indent: uint,
 }
 
 impl<'a> Encoder<'a> {
     /// Creates a new JSON encoder whose output will be written to the writer
     /// specified.
     pub fn new<'a>(wr: &'a mut io::Writer) -> Encoder<'a> {
-        Encoder { wr: wr }
+        Encoder::with_spaces(wr, 0)
+    }
+
+    pub fn new_pretty<'a>(wr: &'a mut io::Writer) -> Encoder<'a> {
+        Encoder::with_spaces(wr, 2)
+    }
+
+    pub fn with_spaces<'a>(wr: &'a mut io::Writer, spaces: uint) -> Encoder<'a> {
+        Encoder {
+            wr: wr,
+            spaces: spaces,
+            indent: 0
+        }
     }
 
     /// Encode the specified struct into a json [u8]
@@ -315,7 +267,7 @@ impl<'a> Encoder<'a> {
         {
             let mut encoder = Encoder::new(&mut m as &mut io::Writer);
             // MemWriter never Errs
-            let _ = to_encode_object.encode(&mut encoder);
+            let _ = to_encode_object.encode(&mut encoder).unwrap();
         }
         m.unwrap()
     }
@@ -373,23 +325,19 @@ impl<'a> ::Encoder<io::IoError> for Encoder<'a> {
         // Bunny => "Bunny"
         // Kangaroo(34,"William") => {"variant": "Kangaroo", "fields": [34,"William"]}
         if cnt == 0 {
-            write!(self.wr, "{}", escape_str(name))
+            self.emit_str(name)
         } else {
-            try!(write!(self.wr, "\\{\"variant\":"));
-            try!(write!(self.wr, "{}", escape_str(name)));
-            try!(write!(self.wr, ",\"fields\":["));
-            try!(f(self));
-            write!(self.wr, "]\\}")
+            self.emit_struct(name, 2, |this| {
+                try!(this.emit_struct_field("variant", 0, |this| this.emit_str(name)));
+                this.emit_struct_field("fields", 1, |this| this.emit_seq(cnt, |this| f(this)))
+            })
         }
     }
 
     fn emit_enum_variant_arg(&mut self,
                              idx: uint,
                              f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
-        if idx != 0 {
-            try!(write!(self.wr, ","));
-        }
-        f(self)
+        self.emit_seq_elt(idx, f)
     }
 
     fn emit_enum_struct_variant(&mut self,
@@ -412,7 +360,12 @@ impl<'a> ::Encoder<io::IoError> for Encoder<'a> {
                    _: uint,
                    f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
         try!(write!(self.wr, r"\{"));
+        self.indent += self.spaces;
         try!(f(self));
+        self.indent -= self.spaces;
+        if self.spaces > 0 {
+            try!(write!(self.wr, "\n{}", spaces(self.indent)));
+        }
         write!(self.wr, r"\}")
     }
 
@@ -421,6 +374,9 @@ impl<'a> ::Encoder<io::IoError> for Encoder<'a> {
                          idx: uint,
                          f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
         if idx != 0 { try!(write!(self.wr, ",")); }
+        if self.spaces > 0 {
+            try!(write!(self.wr, "\n{}", spaces(self.indent)));
+        }
         try!(write!(self.wr, "{}:", escape_str(name)));
         f(self)
     }
@@ -454,10 +410,19 @@ impl<'a> ::Encoder<io::IoError> for Encoder<'a> {
         f(self)
     }
 
-    fn emit_seq(&mut self, _len: uint, f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
-        try!(write!(self.wr, "["));
-        try!(f(self));
-        write!(self.wr, "]")
+    fn emit_seq(&mut self, len: uint, f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
+        if len == 0 {
+            write!(self.wr, "[]")
+        } else {
+            try!(write!(self.wr, "["));
+            self.indent += self.spaces;
+            try!(f(self));
+            self.indent -= self.spaces;
+            if self.spaces > 0 {
+                try!(write!(self.wr, "\n{}"), spaces(self.indent));
+            }
+            write!(self.wr, "]")
+        }
     }
 
     fn emit_seq_elt(&mut self, idx: uint, f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
@@ -467,10 +432,8 @@ impl<'a> ::Encoder<io::IoError> for Encoder<'a> {
         f(self)
     }
 
-    fn emit_map(&mut self, _len: uint, f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
-        try!(write!(self.wr, r"\{"));
-        try!(f(self));
-        write!(self.wr, r"\}")
+    fn emit_map(&mut self, len: uint, f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
+        self.emit_struct("", len, f)
     }
 
     fn emit_map_elt_key(&mut self,
@@ -478,6 +441,9 @@ impl<'a> ::Encoder<io::IoError> for Encoder<'a> {
                         f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
         use std::str::from_utf8;
         if idx != 0 { try!(write!(self.wr, ",")) }
+        if self.spaces > 0 {
+            try!(write!(self.wr, "\n{}", spaces(self.indent)));
+        }
         // ref #12967, make sure to wrap a key in double quotes,
         // in the event that its of a type that omits them (eg numbers)
         let mut buf = MemWriter::new();
@@ -485,249 +451,13 @@ impl<'a> ::Encoder<io::IoError> for Encoder<'a> {
         try!(f(&mut check_encoder));
         let buf = buf.unwrap();
         let out = from_utf8(buf).unwrap();
-        let needs_wrapping = out.char_at(0) != '"' &&
-            out.char_at_reverse(out.len()) != '"';
-        if needs_wrapping { try!(write!(self.wr, "\"")); }
-        try!(f(self));
-        if needs_wrapping { try!(write!(self.wr, "\"")); }
-        Ok(())
+
+        write!(self.wr, "{}:", escape_str(out))
     }
 
     fn emit_map_elt_val(&mut self,
                         _idx: uint,
                         f: |&mut Encoder<'a>| -> EncodeResult) -> EncodeResult {
-        try!(write!(self.wr, ":"));
-        f(self)
-    }
-}
-
-/// Another encoder for JSON, but prints out human-readable JSON instead of
-/// compact data
-pub struct PrettyEncoder<'a> {
-    priv wr: &'a mut io::Writer,
-    priv indent: uint,
-}
-
-impl<'a> PrettyEncoder<'a> {
-    /// Creates a new encoder whose output will be written to the specified writer
-    pub fn new<'a>(wr: &'a mut io::Writer) -> PrettyEncoder<'a> {
-        PrettyEncoder {
-            wr: wr,
-            indent: 0,
-        }
-    }
-}
-
-impl<'a> ::Encoder<io::IoError> for PrettyEncoder<'a> {
-    fn emit_nil(&mut self) -> EncodeResult { write!(self.wr, "null") }
-
-    fn emit_uint(&mut self, v: uint) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_u64(&mut self, v: u64) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_u32(&mut self, v: u32) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_u16(&mut self, v: u16) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_u8(&mut self, v: u8) -> EncodeResult { self.emit_f64(v as f64) }
-
-    fn emit_int(&mut self, v: int) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_i64(&mut self, v: i64) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_i32(&mut self, v: i32) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_i16(&mut self, v: i16) -> EncodeResult { self.emit_f64(v as f64) }
-    fn emit_i8(&mut self, v: i8) -> EncodeResult { self.emit_f64(v as f64) }
-
-    fn emit_bool(&mut self, v: bool) -> EncodeResult {
-        if v {
-            write!(self.wr, "true")
-        } else {
-            write!(self.wr, "false")
-        }
-    }
-
-    fn emit_f64(&mut self, v: f64) -> EncodeResult {
-        write!(self.wr, "{}", f64::to_str_digits(v, 6u))
-    }
-    fn emit_f32(&mut self, v: f32) -> EncodeResult { self.emit_f64(v as f64) }
-
-    fn emit_char(&mut self, v: char) -> EncodeResult { self.emit_str(str::from_char(v)) }
-    fn emit_str(&mut self, v: &str) -> EncodeResult {
-        write!(self.wr, "{}", escape_str(v))
-    }
-
-    fn emit_enum(&mut self,
-                 _name: &str,
-                 f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        f(self)
-    }
-
-    fn emit_enum_variant(&mut self,
-                         name: &str,
-                         _: uint,
-                         cnt: uint,
-                         f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        if cnt == 0 {
-            write!(self.wr, "{}", escape_str(name))
-        } else {
-            self.indent += 2;
-            try!(write!(self.wr, "[\n{}{},\n", spaces(self.indent),
-                          escape_str(name)));
-            try!(f(self));
-            self.indent -= 2;
-            write!(self.wr, "\n{}]", spaces(self.indent))
-        }
-    }
-
-    fn emit_enum_variant_arg(&mut self,
-                             idx: uint,
-                             f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        if idx != 0 {
-            try!(write!(self.wr, ",\n"));
-        }
-        try!(write!(self.wr, "{}", spaces(self.indent)));
-        f(self)
-    }
-
-    fn emit_enum_struct_variant(&mut self,
-                                name: &str,
-                                id: uint,
-                                cnt: uint,
-                                f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        self.emit_enum_variant(name, id, cnt, f)
-    }
-
-    fn emit_enum_struct_variant_field(&mut self,
-                                      _: &str,
-                                      idx: uint,
-                                      f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        self.emit_enum_variant_arg(idx, f)
-    }
-
-
-    fn emit_struct(&mut self,
-                   _: &str,
-                   len: uint,
-                   f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        if len == 0 {
-            write!(self.wr, "\\{\\}")
-        } else {
-            try!(write!(self.wr, "\\{"));
-            self.indent += 2;
-            try!(f(self));
-            self.indent -= 2;
-            write!(self.wr, "\n{}\\}", spaces(self.indent))
-        }
-    }
-
-    fn emit_struct_field(&mut self,
-                         name: &str,
-                         idx: uint,
-                         f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        if idx == 0 {
-            try!(write!(self.wr, "\n"));
-        } else {
-            try!(write!(self.wr, ",\n"));
-        }
-        try!(write!(self.wr, "{}{}: ", spaces(self.indent), escape_str(name)));
-        f(self)
-    }
-
-    fn emit_tuple(&mut self,
-                  len: uint,
-                  f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        self.emit_seq(len, f)
-    }
-    fn emit_tuple_arg(&mut self,
-                      idx: uint,
-                      f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        self.emit_seq_elt(idx, f)
-    }
-
-    fn emit_tuple_struct(&mut self,
-                         _: &str,
-                         len: uint,
-                         f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        self.emit_seq(len, f)
-    }
-    fn emit_tuple_struct_arg(&mut self,
-                             idx: uint,
-                             f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        self.emit_seq_elt(idx, f)
-    }
-
-    fn emit_option(&mut self, f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        f(self)
-    }
-    fn emit_option_none(&mut self) -> EncodeResult { self.emit_nil() }
-    fn emit_option_some(&mut self, f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        f(self)
-    }
-
-    fn emit_seq(&mut self,
-                len: uint,
-                f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        if len == 0 {
-            write!(self.wr, "[]")
-        } else {
-            try!(write!(self.wr, "["));
-            self.indent += 2;
-            try!(f(self));
-            self.indent -= 2;
-            write!(self.wr, "\n{}]", spaces(self.indent))
-        }
-    }
-
-    fn emit_seq_elt(&mut self,
-                    idx: uint,
-                    f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        if idx == 0 {
-            try!(write!(self.wr, "\n"));
-        } else {
-            try!(write!(self.wr, ",\n"));
-        }
-        try!(write!(self.wr, "{}", spaces(self.indent)));
-        f(self)
-    }
-
-    fn emit_map(&mut self,
-                len: uint,
-                f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        if len == 0 {
-            write!(self.wr, "\\{\\}")
-        } else {
-            try!(write!(self.wr, "\\{"));
-            self.indent += 2;
-            try!(f(self));
-            self.indent -= 2;
-            write!(self.wr, "\n{}\\}", spaces(self.indent))
-        }
-    }
-
-    fn emit_map_elt_key(&mut self,
-                        idx: uint,
-                        f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        use std::str::from_utf8;
-        if idx == 0 {
-            try!(write!(self.wr, "\n"));
-        } else {
-            try!(write!(self.wr, ",\n"));
-        }
-        try!(write!(self.wr, "{}", spaces(self.indent)));
-        // ref #12967, make sure to wrap a key in double quotes,
-        // in the event that its of a type that omits them (eg numbers)
-        let mut buf = MemWriter::new();
-        let mut check_encoder = PrettyEncoder::new(&mut buf);
-        try!(f(&mut check_encoder));
-        let buf = buf.unwrap();
-        let out = from_utf8(buf).unwrap();
-        let needs_wrapping = out.char_at(0) != '"' &&
-            out.char_at_reverse(out.len()) != '"';
-        if needs_wrapping { try!(write!(self.wr, "\"")); }
-        try!(f(self));
-        if needs_wrapping { try!(write!(self.wr, "\"")); }
-        Ok(())
-    }
-
-    fn emit_map_elt_val(&mut self,
-                        _idx: uint,
-                        f: |&mut PrettyEncoder<'a>| -> EncodeResult) -> EncodeResult {
-        try!(write!(self.wr, ": "));
         f(self)
     }
 }
@@ -745,6 +475,12 @@ impl<E: ::Encoder<io::IoError>> Encodable<E, io::IoError> for Json {
     }
 }
 
+impl Decodable<Decoder<Error>, Error> for Json {
+    fn decode<T>(d: &mut D) -> DecodeResult<Json> {
+        d.pop()
+    }
+}
+
 impl Json {
     /// Encodes a json value into a io::writer.  Uses a single line.
     pub fn to_writer(&self, wr: &mut io::Writer) -> EncodeResult {
@@ -755,7 +491,7 @@ impl Json {
     /// Encodes a json value into a io::writer.
     /// Pretty-prints in a more readable format.
     pub fn to_pretty_writer(&self, wr: &mut io::Writer) -> EncodeResult {
-        let mut encoder = PrettyEncoder::new(wr);
+        let mut encoder = Encoder::new_pretty(wr);
         self.encode(&mut encoder)
     }
 
@@ -898,30 +634,34 @@ impl Json {
     }
 }
 
-pub struct Parser<T> {
+pub struct Decoder<T> {
     priv rdr: T,
     priv ch: Option<char>,
     priv line: uint,
     priv col: uint,
+    priv parsed: bool,
+    priv stack: Vec<Json>
 }
 
-impl<T: Iterator<char>> Parser<T> {
+impl<T: Iterator<char>> Decoder<T> {
     /// Decode a json value from an Iterator<char>
-    pub fn new(rdr: T) -> Parser<T> {
-        let mut p = Parser {
+    pub fn new(rdr: T) -> Decoder<T> {
+        let mut p = Decoder {
             rdr: rdr,
             ch: Some('\x00'),
             line: 1,
             col: 0,
+            parsed: false,
+            stack: Vec::new()
         };
         p.bump();
         p
     }
 }
 
-impl<T: Iterator<char>> Parser<T> {
+impl<T: Iterator<char>> Decoder<T> {
     pub fn parse(&mut self) -> DecodeResult<Json> {
-        match self.parse_value() {
+        let result = match self.parse_value() {
           Ok(value) => {
             // Skip trailing whitespaces.
             self.parse_whitespace();
@@ -933,11 +673,13 @@ impl<T: Iterator<char>> Parser<T> {
             }
           }
           Err(e) => Err(e)
-        }
+        };
+        self.parsed = true;
+        result
     }
 }
 
-impl<T : Iterator<char>> Parser<T> {
+impl<T : Iterator<char>> Decoder<T> {
     fn eof(&self) -> bool { self.ch.is_none() }
     fn ch_or_null(&self) -> char { self.ch.unwrap_or('\x00') }
     fn bump(&mut self) {
@@ -1196,7 +938,7 @@ impl<T : Iterator<char>> Parser<T> {
         self.bump();
         self.parse_whitespace();
 
-        let mut values = ~[];
+        let mut values = Vec::new();
 
         if self.ch_is(']') {
             self.bump();
@@ -1277,7 +1019,7 @@ impl<T : Iterator<char>> Parser<T> {
 }
 
 /// Decodes a json value from an `&mut io::Reader`
-pub fn from_reader(rdr: &mut io::Reader) -> DecodeResult<Json> {
+pub fn from_reader<T>(rdr: &mut io::Reader) -> DecodeResult<T> {
     let contents = match rdr.read_to_end() {
         Ok(c) => c,
         Err(e) => return Err(IoError(e))
@@ -1286,52 +1028,41 @@ pub fn from_reader(rdr: &mut io::Reader) -> DecodeResult<Json> {
         Some(s) => s,
         None => return Err(ParseError(~"contents not utf-8", 0, 0))
     };
-    let mut parser = Parser::new(s.chars());
-    parser.parse()
+    let mut decoder = Decoder::new(s.chars());
+    Decodable::decode(decoder)
 }
 
 /// Decodes a json value from a string
-pub fn from_str(s: &str) -> DecodeResult<Json> {
-    let mut parser = Parser::new(s.chars());
-    parser.parse()
+pub fn from_str<T>(s: &str) -> DecodeResult<T> {
+    let mut decoder = Decoder::new(s.chars());
+    Decodable::decode(decoder)
 }
 
-/// A structure to decode JSON to values in rust.
-pub struct Decoder {
-    priv stack: ~[Json],
-}
-
-impl Decoder {
-    /// Creates a new decoder instance for decoding the specified JSON value.
-    pub fn new(json: Json) -> Decoder {
-        Decoder {
-            stack: ~[json]
+impl<T> Decoder<T> {
+    fn pop(&mut self) -> DecodeResult<Json> {
+        if !self.parsed {
+            self.stack.push(try!(self.parse()));
         }
-    }
-}
-
-impl Decoder {
-    fn pop(&mut self) -> Json {
         self.stack.pop().unwrap()
     }
 }
 
 macro_rules! expect(
     ($e:expr, Null) => ({
-        match $e {
+        match try!($e) {
             Null => Ok(()),
             other => Err(ExpectedError(~"Null", format!("{}", other)))
         }
     });
     ($e:expr, $t:ident) => ({
-        match $e {
+        match try!($e) {
             $t(v) => Ok(v),
             other => Err(ExpectedError(stringify!($t).to_owned(), format!("{}", other)))
         }
     })
 )
 
-impl ::Decoder<Error> for Decoder {
+impl<T> ::Decoder<Error> for Decoder<T> {
     fn read_nil(&mut self) -> DecodeResult<()> {
         debug!("read_nil");
         try!(expect!(self.pop(), Null));
@@ -1358,7 +1089,7 @@ impl ::Decoder<Error> for Decoder {
     fn read_f64(&mut self) -> DecodeResult<f64> {
         use std::from_str::FromStr;
         debug!("read_f64");
-        match self.pop() {
+        match try!(self.pop()) {
             Number(f) => Ok(f),
             String(s) => {
                 // re: #12967.. a type w/ numeric keys (ie HashMap<uint, V> etc)
@@ -1401,7 +1132,7 @@ impl ::Decoder<Error> for Decoder {
                             f: |&mut Decoder, uint| -> DecodeResult<T>)
                             -> DecodeResult<T> {
         debug!("read_enum_variant(names={:?})", names);
-        let name = match self.pop() {
+        let name = match try!(self.pop()) {
             String(s) => s,
             Object(mut o) => {
                 let n = match o.pop(&~"variant") {
@@ -1460,7 +1191,7 @@ impl ::Decoder<Error> for Decoder {
                       -> DecodeResult<T> {
         debug!("read_struct(name={}, len={})", name, len);
         let value = try!(f(self));
-        self.pop();
+        try!(self.pop());
         Ok(value)
     }
 
@@ -1512,7 +1243,7 @@ impl ::Decoder<Error> for Decoder {
     }
 
     fn read_option<T>(&mut self, f: |&mut Decoder, bool| -> DecodeResult<T>) -> DecodeResult<T> {
-        match self.pop() {
+        match try!(self.pop()) {
             Null => f(self, false),
             value => { self.stack.push(value); f(self, true) }
         }
@@ -1615,129 +1346,6 @@ impl Ord for Json {
     }
 }
 
-/// A trait for converting values to JSON
-pub trait ToJson {
-    /// Converts the value of `self` to an instance of JSON
-    fn to_json(&self) -> Json;
-}
-
-impl ToJson for Json {
-    fn to_json(&self) -> Json { (*self).clone() }
-}
-
-impl ToJson for int {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for i8 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for i16 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for i32 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for i64 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for uint {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for u8 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for u16 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for u32 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for u64 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for f32 {
-    fn to_json(&self) -> Json { Number(*self as f64) }
-}
-
-impl ToJson for f64 {
-    fn to_json(&self) -> Json { Number(*self) }
-}
-
-impl ToJson for () {
-    fn to_json(&self) -> Json { Null }
-}
-
-impl ToJson for bool {
-    fn to_json(&self) -> Json { Boolean(*self) }
-}
-
-impl ToJson for ~str {
-    fn to_json(&self) -> Json { String((*self).clone()) }
-}
-
-impl<A:ToJson,B:ToJson> ToJson for (A, B) {
-    fn to_json(&self) -> Json {
-        match *self {
-          (ref a, ref b) => {
-            List(~[a.to_json(), b.to_json()])
-          }
-        }
-    }
-}
-
-impl<A:ToJson,B:ToJson,C:ToJson> ToJson for (A, B, C) {
-    fn to_json(&self) -> Json {
-        match *self {
-          (ref a, ref b, ref c) => {
-            List(~[a.to_json(), b.to_json(), c.to_json()])
-          }
-        }
-    }
-}
-
-impl<A:ToJson> ToJson for ~[A] {
-    fn to_json(&self) -> Json { List(self.map(|elt| elt.to_json())) }
-}
-
-impl<A:ToJson> ToJson for TreeMap<~str, A> {
-    fn to_json(&self) -> Json {
-        let mut d = TreeMap::new();
-        for (key, value) in self.iter() {
-            d.insert((*key).clone(), value.to_json());
-        }
-        Object(~d)
-    }
-}
-
-impl<A:ToJson> ToJson for HashMap<~str, A> {
-    fn to_json(&self) -> Json {
-        let mut d = TreeMap::new();
-        for (key, value) in self.iter() {
-            d.insert((*key).clone(), value.to_json());
-        }
-        Object(~d)
-    }
-}
-
-impl<A:ToJson> ToJson for Option<A> {
-    fn to_json(&self) -> Json {
-        match *self {
-          None => Null,
-          Some(ref value) => value.to_json()
-        }
-    }
-}
-
 impl fmt::Show for Json {
     /// Encodes a json value into a string
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1764,12 +1372,12 @@ mod tests {
     struct Inner {
         a: (),
         b: uint,
-        c: ~[~str],
+        c: Vec<~str>,
     }
 
     #[deriving(Eq, Encodable, Decodable, Show)]
     struct Outer {
-        inner: ~[Inner],
+        inner: Vec<Inner>,
     }
 
     fn mk_object(items: &[(~str, Json)]) -> Json {
@@ -1826,22 +1434,22 @@ mod tests {
 
     #[test]
     fn test_write_list() {
-        assert_eq!(List(~[]).to_str(), ~"[]");
-        assert_eq!(List(~[]).to_pretty_str(), ~"[]");
+        assert_eq!(List(vec!()).to_str(), ~"[]");
+        assert_eq!(List(vec!()).to_pretty_str(), ~"[]");
 
-        assert_eq!(List(~[Boolean(true)]).to_str(), ~"[true]");
+        assert_eq!(List(vec![Boolean(true)]).to_str(), ~"[true]");
         assert_eq!(
-            List(~[Boolean(true)]).to_pretty_str(),
+            List(vec![Boolean(true)]).to_pretty_str(),
             ~"\
             [\n  \
                 true\n\
             ]"
         );
 
-        let long_test_list = List(~[
+        let long_test_list = List(vec![
             Boolean(false),
             Null,
-            List(~[String(~"foo\nbar"), Number(3.5)])]);
+            List(vec![String(~"foo\nbar"), Number(3.5)])]);
 
         assert_eq!(long_test_list.to_str(),
             ~"[false,null,[\"foo\\nbar\",3.5]]");
@@ -1877,7 +1485,7 @@ mod tests {
         );
 
         let complex_obj = mk_object([
-                (~"b", List(~[
+                (~"b", List(vec![
                     mk_object([(~"c", String(~"\x0c\r"))]),
                     mk_object([(~"d", String(~""))])
                 ]))
@@ -1909,7 +1517,7 @@ mod tests {
 
         let a = mk_object([
             (~"a", Boolean(true)),
-            (~"b", List(~[
+            (~"b", List(vec![
                 mk_object([(~"c", String(~"\x0c\r"))]),
                 mk_object([(~"d", String(~""))])
             ]))
@@ -1942,7 +1550,7 @@ mod tests {
         );
         assert_eq!(
             with_str_writer(|wr| {
-                let mut encoder = PrettyEncoder::new(wr);
+                let mut encoder = Encoder::new_pretty(wr);
                 animal.encode(&mut encoder).unwrap();
             }),
             ~"\"Dog\""
@@ -1958,7 +1566,7 @@ mod tests {
         );
         assert_eq!(
             with_str_writer(|wr| {
-                let mut encoder = PrettyEncoder::new(wr);
+                let mut encoder = Encoder::new_pretty(wr);
                 animal.encode(&mut encoder).unwrap();
             }),
             ~"\
@@ -1981,7 +1589,7 @@ mod tests {
 
         let value = Some(~"jodhpurs");
         let s = with_str_writer(|wr| {
-            let mut encoder = PrettyEncoder::new(wr);
+            let mut encoder = Encoder::new_pretty(wr);
             value.encode(&mut encoder).unwrap();
         });
         assert_eq!(s, ~"\"jodhpurs\"");
@@ -2046,16 +1654,13 @@ mod tests {
 
     #[test]
     fn test_decode_identifiers() {
-        let mut decoder = Decoder::new(from_str("null").unwrap());
-        let v: () = Decodable::decode(&mut decoder).unwrap();
+        let v: () = from_str("null").unwrap();
         assert_eq!(v, ());
 
-        let mut decoder = Decoder::new(from_str("true").unwrap());
-        let v: bool = Decodable::decode(&mut decoder).unwrap();
+        let v: bool = from_str("true").unwrap();
         assert_eq!(v, true);
 
-        let mut decoder = Decoder::new(from_str("false").unwrap());
-        let v: bool = Decodable::decode(&mut decoder).unwrap();
+        let v: bool = from_str("false").unwrap();
         assert_eq!(v, false);
     }
 
@@ -2089,32 +1694,26 @@ mod tests {
 
     #[test]
     fn test_decode_numbers() {
-        let mut decoder = Decoder::new(from_str("3").unwrap());
-        let v: f64 = Decodable::decode(&mut decoder).unwrap();
+        let v: f64 = from_str("3").unwrap();
         assert_eq!(v, 3.0);
 
-        let mut decoder = Decoder::new(from_str("3.1").unwrap());
-        let v: f64 = Decodable::decode(&mut decoder).unwrap();
+        let v: f64 = from_str("3.1").unwrap();
         assert_eq!(v, 3.1);
 
-        let mut decoder = Decoder::new(from_str("-1.2").unwrap());
+        let v: f64 = from_str("-1.2").unwrap();
         let v: f64 = Decodable::decode(&mut decoder).unwrap();
         assert_eq!(v, -1.2);
 
-        let mut decoder = Decoder::new(from_str("0.4").unwrap());
-        let v: f64 = Decodable::decode(&mut decoder).unwrap();
+        let v: f64 = from_str("0.4").unwrap();
         assert_eq!(v, 0.4);
 
-        let mut decoder = Decoder::new(from_str("0.4e5").unwrap());
-        let v: f64 = Decodable::decode(&mut decoder).unwrap();
+        let v: f64 = from_str("0.4e5").unwrap();
         assert_eq!(v, 0.4e5);
 
-        let mut decoder = Decoder::new(from_str("0.4e15").unwrap());
-        let v: f64 = Decodable::decode(&mut decoder).unwrap();
+        let v: f64 = from_str("0.4e15").unwrap();
         assert_eq!(v, 0.4e15);
 
-        let mut decoder = Decoder::new(from_str("0.4e-01").unwrap());
-        let v: f64 = Decodable::decode(&mut decoder).unwrap();
+        let v: f64 = from_str("0.4e-01").unwrap();
         assert_eq!(v, 0.4e-01);
     }
 
@@ -2139,40 +1738,31 @@ mod tests {
 
     #[test]
     fn test_decode_str() {
-        let mut decoder = Decoder::new(from_str("\"\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\"").unwrap();
         assert_eq!(v, ~"");
 
-        let mut decoder = Decoder::new(from_str("\"foo\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"foo\"").unwrap();
         assert_eq!(v, ~"foo");
 
-        let mut decoder = Decoder::new(from_str("\"\\\"\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\\\"\"").unwrap();
         assert_eq!(v, ~"\"");
 
-        let mut decoder = Decoder::new(from_str("\"\\b\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\\b\"").unwrap();
         assert_eq!(v, ~"\x08");
 
-        let mut decoder = Decoder::new(from_str("\"\\n\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\\n\"").unwrap();
         assert_eq!(v, ~"\n");
 
-        let mut decoder = Decoder::new(from_str("\"\\r\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\\r\"").unwrap();
         assert_eq!(v, ~"\r");
 
-        let mut decoder = Decoder::new(from_str("\"\\t\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\\t\"").unwrap();
         assert_eq!(v, ~"\t");
 
-        let mut decoder = Decoder::new(from_str("\"\\u12ab\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\\u12ab\"").unwrap();
         assert_eq!(v, ~"\u12ab");
 
-        let mut decoder = Decoder::new(from_str("\"\\uAB12\"").unwrap());
-        let v: ~str = Decodable::decode(&mut decoder).unwrap();
+        let v: ~str = from_str("\"\\uAB12\"").unwrap();
         assert_eq!(v, ~"\uAB12");
     }
 
@@ -2189,44 +1779,38 @@ mod tests {
         assert_eq!(from_str("[6 7]"),
             Err(ParseError(~"expected `,` or `]`", 1u, 4u)));
 
-        assert_eq!(from_str("[]"), Ok(List(~[])));
-        assert_eq!(from_str("[ ]"), Ok(List(~[])));
-        assert_eq!(from_str("[true]"), Ok(List(~[Boolean(true)])));
-        assert_eq!(from_str("[ false ]"), Ok(List(~[Boolean(false)])));
-        assert_eq!(from_str("[null]"), Ok(List(~[Null])));
+        assert_eq!(from_str("[]"), Ok(List(vec![])));
+        assert_eq!(from_str("[ ]"), Ok(List(vec![])));
+        assert_eq!(from_str("[true]"), Ok(List(vec![Boolean(true)])));
+        assert_eq!(from_str("[ false ]"), Ok(List(vec![Boolean(false)])));
+        assert_eq!(from_str("[null]"), Ok(List(vec![Null])));
         assert_eq!(from_str("[3, 1]"),
-                     Ok(List(~[Number(3.0), Number(1.0)])));
+                     Ok(List(vec![Number(3.0), Number(1.0)])));
         assert_eq!(from_str("\n[3, 2]\n"),
-                     Ok(List(~[Number(3.0), Number(2.0)])));
+                     Ok(List(vec![Number(3.0), Number(2.0)])));
         assert_eq!(from_str("[2, [4, 1]]"),
-               Ok(List(~[Number(2.0), List(~[Number(4.0), Number(1.0)])])));
+               Ok(List(vec![Number(2.0), List(vec![Number(4.0), Number(1.0)])])));
     }
 
     #[test]
     fn test_decode_list() {
-        let mut decoder = Decoder::new(from_str("[]").unwrap());
-        let v: ~[()] = Decodable::decode(&mut decoder).unwrap();
-        assert_eq!(v, ~[]);
+        let v: Vec<()> = from_str("[]").unwrap();
+        assert_eq!(v, Vec::new());
 
-        let mut decoder = Decoder::new(from_str("[null]").unwrap());
-        let v: ~[()] = Decodable::decode(&mut decoder).unwrap();
-        assert_eq!(v, ~[()]);
+        let v: Vec<()> = from_str("[null]").unwrap();
+        assert_eq!(v, Vec::new());
 
-        let mut decoder = Decoder::new(from_str("[true]").unwrap());
-        let v: ~[bool] = Decodable::decode(&mut decoder).unwrap();
-        assert_eq!(v, ~[true]);
+        let v: Vec<bool> = from_str("[true]").unwrap();
+        assert_eq!(v, vec![true]);
 
-        let mut decoder = Decoder::new(from_str("[true]").unwrap());
-        let v: ~[bool] = Decodable::decode(&mut decoder).unwrap();
-        assert_eq!(v, ~[true]);
+        let v: Vec<bool> = from_str("[true]").unwrap();
+        assert_eq!(v, vec![true]);
 
-        let mut decoder = Decoder::new(from_str("[3, 1]").unwrap());
-        let v: ~[int] = Decodable::decode(&mut decoder).unwrap();
-        assert_eq!(v, ~[3, 1]);
+        let v: Vec<int> = from_str("[3, 1]").unwrap();
+        assert_eq!(v, vec![3, 1]);
 
-        let mut decoder = Decoder::new(from_str("[[3], [1, 2]]").unwrap());
-        let v: ~[~[uint]] = Decodable::decode(&mut decoder).unwrap();
-        assert_eq!(v, ~[~[3], ~[1, 2]]);
+        let v: Vec<Vec<uint>> = from_str("[[3], [1, 2]]").unwrap();
+        assert_eq!(v, vec![vec![3], vec![1, 2]]);
     }
 
     #[test]
@@ -2272,7 +1856,7 @@ mod tests {
                       "{\"a\" : 1.0 ,\"b\": [ true ]}").unwrap(),
                   mk_object([
                       (~"a", Number(1.0)),
-                      (~"b", List(~[Boolean(true)]))
+                      (~"b", List(vec![Boolean(true)]))
                   ]));
         assert_eq!(from_str(
                       ~"{" +
@@ -2285,7 +1869,7 @@ mod tests {
                       "}").unwrap(),
                   mk_object([
                       (~"a", Number(1.0)),
-                      (~"b", List(~[
+                      (~"b", List(vec![
                           Boolean(true),
                           String(~"foo\nbar"),
                           mk_object([
@@ -2302,13 +1886,12 @@ mod tests {
                 { \"a\": null, \"b\": 2, \"c\": [\"abc\", \"xyz\"] }
             ]
         }";
-        let mut decoder = Decoder::new(from_str(s).unwrap());
-        let v: Outer = Decodable::decode(&mut decoder).unwrap();
+        let v: Outer = from_str(s).unwrap();
         assert_eq!(
             v,
             Outer {
-                inner: ~[
-                    Inner { a: (), b: 2, c: ~[~"abc", ~"xyz"] }
+                inner: vec![
+                    Inner { a: (), b: 2, c: vec![~"abc", ~"xyz"] }
                 ]
             }
         );
@@ -2316,32 +1899,27 @@ mod tests {
 
     #[test]
     fn test_decode_option() {
-        let mut decoder = Decoder::new(from_str("null").unwrap());
-        let value: Option<~str> = Decodable::decode(&mut decoder).unwrap();
+        let value: Option<~str> = from_str("null").unwrap();
         assert_eq!(value, None);
 
-        let mut decoder = Decoder::new(from_str("\"jodhpurs\"").unwrap());
-        let value: Option<~str> = Decodable::decode(&mut decoder).unwrap();
+        let value: Option<~str> = from_str("\"jodhpurs\"").unwrap();
         assert_eq!(value, Some(~"jodhpurs"));
     }
 
     #[test]
     fn test_decode_enum() {
-        let mut decoder = Decoder::new(from_str("\"Dog\"").unwrap());
-        let value: Animal = Decodable::decode(&mut decoder).unwrap();
+        let value: Animal = from_str("\"Dog\"").unwrap();
         assert_eq!(value, Dog);
 
         let s = "{\"variant\":\"Frog\",\"fields\":[\"Henry\",349]}";
-        let mut decoder = Decoder::new(from_str(s).unwrap());
-        let value: Animal = Decodable::decode(&mut decoder).unwrap();
+        let value: Animal = from_str(s).unwrap();
         assert_eq!(value, Frog(~"Henry", 349));
     }
 
     #[test]
     fn test_decode_map() {
         let s = ~"{\"a\": \"Dog\", \"b\": {\"variant\":\"Frog\",\"fields\":[\"Henry\", 349]}}";
-        let mut decoder = Decoder::new(from_str(s).unwrap());
-        let mut map: TreeMap<~str, Animal> = Decodable::decode(&mut decoder).unwrap();
+        let mut map: TreeMap<~str, Animal> = from_str(s).unwrap();
 
         assert_eq!(map.pop(&~"a"), Some(Dog));
         assert_eq!(map.pop(&~"b"), Some(Frog(~"Henry", 349)));
@@ -2358,7 +1936,7 @@ mod tests {
         x: f64,
         y: bool,
         z: ~str,
-        w: ~[DecodeStruct]
+        w: Vec<DecodeStruct>
     }
     #[deriving(Decodable)]
     enum DecodeEnum {
@@ -2366,10 +1944,7 @@ mod tests {
         B(~str)
     }
     fn check_err<T: Decodable<Decoder, Error>>(to_parse: &'static str, expected: Error) {
-        let res: DecodeResult<T> = match from_str(to_parse) {
-            Err(e) => Err(e),
-            Ok(json) => Decodable::decode(&mut Decoder::new(json))
-        };
+        let res: DecodeResult<T> = from_str(to_parse);
         match res {
             Ok(_) => fail!("`{}` parsed & decoded ok, expecting error `{}`",
                               to_parse, expected),
@@ -2544,7 +2119,7 @@ mod tests {
         hm.insert(1, true);
         let mut mem_buf = MemWriter::new();
         {
-            let mut encoder = PrettyEncoder::new(&mut mem_buf as &mut io::Writer);
+            let mut encoder = Encoder::new_pretty(&mut mem_buf as &mut io::Writer);
             hm.encode(&mut encoder).unwrap();
         }
         let bytes = mem_buf.unwrap();
@@ -2557,13 +2132,7 @@ mod tests {
     #[test]
     fn test_hashmap_with_numeric_key_can_handle_double_quote_delimited_key() {
         use collections::HashMap;
-        use Decodable;
         let json_str = "{\"1\":true}";
-        let json_obj = match from_str(json_str) {
-            Err(_) => fail!("Unable to parse json_str: {:?}", json_str),
-            Ok(o) => o
-        };
-        let mut decoder = Decoder::new(json_obj);
-        let _hm: HashMap<uint, bool> = Decodable::decode(&mut decoder).unwrap();
+        let _hm: HashMap<uint, bool> = from_str(json_str).unwrap();
     }
 }

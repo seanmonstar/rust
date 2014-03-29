@@ -13,11 +13,35 @@
 use std::uint;
 use std::default::Default;
 use std::hash::{Hash, Hasher};
+use std::vec::Vec;
 
 use {Decodable, Encodable, Decoder, Encoder};
 use collections::{DList, RingBuf, TreeMap, TreeSet, Deque, HashMap, HashSet,
                   TrieMap, TrieSet};
 use collections::enum_set::{EnumSet, CLike};
+
+impl<E, S: Encoder<E>, T: Encodable<S, E>> Encodable<S, E> for Vec<T> {
+    fn encode(&self, s: &mut S) -> Result<(), E> {
+        s.emit_seq(self.len(), |s| {
+            for (i, e) in self.iter().enumerate() {
+                try!(s.emit_seq_elt(i, |s| e.encode(s)));
+            }
+            Ok(())
+        })
+    }
+}
+
+impl<E, D: Decoder<E>, T: Decodable<D, E>> Decodable<D, E> for Vec<T> {
+    fn decode(d: &mut D) -> Result<Vec<T>, E> {
+        d.read_seq(|d, len| {
+            let mut vec = Vec::with_capacity(len);
+            for i in range(0u, len) {
+                list.push(try!(d.read_seq_elt(i, |d| Decodable::decode(d))));
+            }
+            Ok(vec)
+        })
+    }
+}
 
 impl<
     E,
