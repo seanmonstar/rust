@@ -564,8 +564,15 @@ pub fn from_fn(len: uint, f: |index: uint| -> bool) -> Bitv {
     bitv
 }
 
+#[cfg(stage0)]
 impl ops::Index<uint,bool> for Bitv {
     fn index(&self, i: &uint) -> bool {
+        self.get(*i)
+    }
+}
+
+impl ops::IndexMove<uint,bool> for Bitv {
+    fn index_move(&self, i: &uint) -> bool {
         self.get(*i)
     }
 }

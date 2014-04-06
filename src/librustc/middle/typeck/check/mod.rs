@@ -1923,6 +1923,54 @@ fn check_expr_with_unifier(fcx: &FnCtxt,
         fcx.write_ty(id, if_ty);
     }
 
+    fn lookup_index_method(fcx: &FnCtxt,
+                           op_ex: &ast::Expr,
+                           self_t: ty::t,
+                           args: &[@ast::Expr],
+                           autoderef_receiver: AutoderefReceiverFlag,
+                           unbound_method: ||) -> ty::t {
+        let tcx = fcx.ccx.tcx;
+        let opnames = [token::intern("index_set"),
+                       token::intern("index_move"),
+                       token::intern("index_mut"),
+                       token::intern("index")];
+        let trait_dids = [tcx.lang_items.index_set_trait(),
+                          tcx.lang_items.index_move_trait(),
+                          tcx.lang_items.index_mut_trait(),
+                          tcx.lang_items.index_trait()];
+
+        for (opname, trait_did) in opnames.iter().zip(trait_dids.iter()) {
+            let method = match *trait_did {
+                Some(trait_did) => {
+                    method::lookup_in_trait(fcx, op_ex.span, Some(&*args[0]), *opname,
+                                            trait_did, self_t, [], autoderef_receiver)
+                }
+                None => None
+            };
+            match method {
+                Some(method) => {
+                    let method_ty = method.ty;
+                    // HACK(eddyb) Fully qualified path to work around a resolve bug.
+                    let method_call = ::middle::typeck::MethodCall::expr(op_ex.id);
+                    fcx.inh.method_map.borrow_mut().insert(method_call, method);
+                    return check_method_argument_types(fcx, op_ex.span,
+                                                       method_ty, op_ex,
+                                                       args, DoDerefArgs);
+                }
+                None => ()
+            };
+        }
+        unbound_method();
+        // Check the args anyway
+        // so we get all the error messages
+        let expected_ty = ty::mk_err();
+        check_method_argument_types(fcx, op_ex.span,
+                                    expected_ty, op_ex,
+                                    args, DoDerefArgs);
+        ty::mk_err()
+
+    }
+
     fn lookup_op_method(fcx: &FnCtxt,
                         op_ex: &ast::Expr,
                         self_t: ty::t,
@@ -3117,14 +3165,12 @@ fn check_expr_with_unifier(fcx: &FnCtxt,
                       let resolved = structurally_resolved_type(fcx,
                                                                 expr.span,
                                                                 raw_base_t);
-                      let ret_ty = lookup_op_method(fcx,
-                                                    expr,
-                                                    resolved,
-                                                    token::intern("index"),
-                                                    tcx.lang_items.index_trait(),
-                                                    [base, idx],
-                                                    AutoderefReceiver,
-                                                    || {
+                      let ret_ty = lookup_index_method(fcx,
+                                                     expr,
+                                                     resolved,
+                                                     [base, idx],
+                                                     AutoderefReceiver,
+                                                     || {
                         fcx.type_error_message(expr.span,
                                                |actual| {
                                                 format!("cannot index a value \

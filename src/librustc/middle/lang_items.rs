@@ -228,7 +228,11 @@ lets_do_this! {
     BitOrTraitLangItem,              "bitor",                   bitor_trait;
     ShlTraitLangItem,                "shl",                     shl_trait;
     ShrTraitLangItem,                "shr",                     shr_trait;
+
     IndexTraitLangItem,              "index",                   index_trait;
+    IndexMutTraitLangItem,           "index_mut",               index_mut_trait;
+    IndexMoveTraitLangItem,          "index_move",              index_move_trait;
+    IndexSetTraitLangItem,           "index_set",               index_set_trait;
 
     UnsafeTypeLangItem,              "unsafe",                  unsafe_type;
 

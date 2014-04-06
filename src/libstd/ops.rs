@@ -469,10 +469,59 @@ pub trait Shr<RHS,Result> {
  * }
  * ```
  */
+#[cfg(stage0)]
 #[lang="index"]
 pub trait Index<Index,Result> {
     /// The method for the indexing (`Foo[Bar]`) operation
     fn index(&self, index: &Index) -> Result;
+}
+
+#[cfg(stage0)]
+pub trait IndexMut<Index,Result> {
+    /// The method for the indexing (`Foo[Bar]`) operation
+    fn index_mut<'a>(&'a mut self, index: &Index) -> &'a mut Result;
+}
+
+#[cfg(stage0)]
+pub trait IndexMove<Index,Result> {
+    /// The method for the indexing (`Foo[Bar]`) operation
+    fn index_move(&self, index: &Index) -> Result;
+}
+
+
+#[cfg(stage0)]
+pub trait IndexSet<Index,Value> {
+    /// The method for the indexing (`Foo[Bar]`) operation
+    fn index_set(&mut self, index: Index, value: Value);
+}
+
+#[cfg(not(stage0))]
+#[lang="index"]
+pub trait Index<Index,Result> {
+    /// The method for the indexing (`Foo[Bar]`) operation
+    fn index<'a>(&'a self, index: &Index) -> &'a Result;
+}
+
+#[cfg(not(stage0))]
+#[lang="index_mut"]
+pub trait IndexMut<Index,Result> {
+    /// The method for the indexing (`Foo[Bar]`) operation
+    fn index_mut<'a>(&'a mut self, index: &Index) -> &'a mut Result;
+}
+
+#[cfg(not(stage0))]
+#[lang="index_move"]
+pub trait IndexMove<Index,Result> {
+    /// The method for the indexing (`Foo[Bar]`) operation
+    fn index_move(&self, index: &Index) -> Result;
+}
+
+
+#[cfg(not(stage0))]
+#[lang="index_set"]
+pub trait IndexSet<Index,Value> {
+    /// The method for the indexing (`Foo[Bar]`) operation
+    fn index_set(&mut self, index: Index, value: Value);
 }
 
 /**

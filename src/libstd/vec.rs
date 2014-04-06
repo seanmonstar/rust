@@ -21,7 +21,7 @@ use mem::{size_of, move_val_init};
 use mem;
 use num;
 use num::{CheckedMul, CheckedAdd};
-use ops::Drop;
+use ops::{Drop, Index, IndexMut};
 use option::{None, Option, Some};
 use ptr::RawPtr;
 use ptr;
@@ -1289,6 +1289,19 @@ impl<T> Vector<T> for Vec<T> {
     }
 }
 
+#[cfg(not(stage0))]
+impl<T> Index<uint, T> for Vec<T> {
+    fn index<'a>(&'a self, index: &uint) -> &'a T {
+        self.get(*index)
+    }
+}
+
+impl<T> IndexMut<uint, T> for Vec<T> {
+    fn index_mut<'a>(&'a mut self, index: &uint) -> &'a mut T {
+        self.get_mut(*index)
+    }
+}
+
 #[unsafe_destructor]
 impl<T> Drop for Vec<T> {
     fn drop(&mut self) {
@@ -1522,5 +1535,21 @@ mod tests {
         // short, long
         v.clone_from(&three);
         assert_eq!(v, three)
+    }
+
+    #[cfg(not(stage0))]
+    #[test]
+    fn test_index() {
+        let v = vec!(1, 2, 3);
+        assert_eq!(v[2], &3);
+        assert_eq!(v[0], &1);
+    }
+    
+    #[cfg(not(stage0))]
+    #[test]
+    fn test_index_mut() {
+        let mut v = vec!(1, 2, 3);
+        v[1] = 5;
+        assert_eq!(v[1], &5);
     }
 }

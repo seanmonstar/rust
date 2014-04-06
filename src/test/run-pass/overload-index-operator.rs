@@ -29,10 +29,10 @@ impl<K,V> AssociationList<K,V> {
 }
 
 impl<K:Eq,V:Clone> Index<K,V> for AssociationList<K,V> {
-    fn index(&self, index: &K) -> V {
+    fn index<'a>(&'a self, index: &K) -> &'a V {
         for pair in self.pairs.iter() {
             if pair.key == *index {
-                return pair.value.clone();
+                return &pair.value;
             }
         }
         fail!("No value found for key: {:?}", index);
@@ -47,9 +47,9 @@ pub fn main() {
     list.push(foo.clone(), 22);
     list.push(bar.clone(), 44);
 
-    assert!(list[foo] == 22)
-    assert!(list[bar] == 44)
+    assert_eq!(list[foo], &22)
+    assert_eq!(list[bar], &44)
 
-    assert!(list[foo] == 22)
-    assert!(list[bar] == 44)
+    assert_eq!(list[foo], &22)
+    assert_eq!(list[bar], &44)
 }

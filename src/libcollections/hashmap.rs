@@ -24,6 +24,7 @@ use std::iter::{range, range_inclusive};
 use std::mem::replace;
 use std::num;
 use std::option::{Option, Some, None};
+use std::ops::{Index, IndexMut, IndexSet};
 use rand;
 use rand::Rng;
 use std::result::{Ok, Err};
@@ -1372,6 +1373,25 @@ impl<K: TotalEq + Hash<S>, V, S, H: Hasher<S> + Default> Extendable<(K, V)> for 
     }
 }
 
+#[cfg(not(stage0))]
+impl<K: TotalEq + Hash<S>, V, S, H: Hasher<S> + Default> Index<K, V> for HashMap<K, V, H> {
+    fn index<'a>(&'a self, index: &K) -> &'a V {
+        self.get(index)
+    }
+}
+
+impl<K: TotalEq + Hash<S>, V, S, H: Hasher<S> + Default> IndexMut<K, V> for HashMap<K, V, H> {
+    fn index_mut<'a>(&'a mut self, index: &K) -> &'a mut V {
+        self.get_mut(index)
+    }
+}
+
+impl<K: TotalEq + Hash<S>, V, S, H: Hasher<S> + Default> IndexSet<K, V> for HashMap<K, V, H> {
+    fn index_set(&mut self, index: K, value: V) {
+        self.insert(index, value);
+    }
+}
+
 /// HashSet iterator
 pub type SetItems<'a, K> =
     iter::Map<'static, (&'a K, &'a ()), &'a K, Entries<'a, K, ()>>;
@@ -1949,6 +1969,44 @@ mod test_map {
             assert_eq!(map.find(&k), Some(&v));
         }
     }
+
+    #[cfg(not(stage0))]
+    #[test]
+    fn test_index() {
+        let mut map = HashMap::new();
+        map.insert(~"foo", ~"bar");
+
+        assert_eq!(map[~"foo"], &"bar");
+    }
+
+    struct Mut {
+        prop: uint
+    }
+
+    #[cfg(not(stage0))]
+    #[test]
+    fn test_index_mut() {
+        let mut map = HashMap::new();
+        map.insert(~"foo", Mut { prop: 1 });
+
+        let mut m = map[~"foo"];
+        m.prop = 3;
+
+        assert_eq!(map[~"foo"].prop, 3);
+    }
+
+    #[cfg(not(stage0))]
+    #[test]
+    fn test_index_set() {
+        let mut map = HashMap::new();
+        map.insert(~"foo", ~"bar");
+
+        map[~"foo"] = ~"baz";
+        map[~"herp"] = ~"derp";
+
+        assert_eq!(map[~"foo"], &"baz");
+        assert_eq!(map[~"herp"], &"derp");
+    }
 }
 
 #[cfg(test)]
@@ -2191,6 +2249,7 @@ mod test_set {
         assert!(set_str == ~"{1, 2}" || set_str == ~"{2, 1}");
         assert_eq!(format!("{}", empty), ~"{}");
     }
+
 }
 
 #[cfg(test)]
