@@ -10,13 +10,13 @@
 
 //! Unordered containers, implemented as hash-tables (`HashSet` and `HashMap` types)
 
+use hash::{Hash, Hasher, sip};
 use std::container::{Container, Mutable, Map, MutableMap, Set, MutableSet};
 use std::clone::Clone;
 use std::cmp::{Eq, TotalEq, Equiv, max};
 use std::default::Default;
 use std::fmt;
 use std::fmt::Show;
-use std::hash::{Hash, Hasher, sip};
 use std::iter;
 use std::iter::{Iterator, FromIterator, Extendable};
 use std::iter::{FilterMap, Chain, Repeat, Zip};
@@ -32,9 +32,9 @@ use std::slice::ImmutableVector;
 mod table {
     extern crate libc;
 
+    use hash::{Hash, Hasher};
     use std::clone::Clone;
     use std::cmp::Eq;
-    use std::hash::{Hash, Hasher};
     use std::kinds::marker;
     use std::num::CheckedMul;
     use std::option::{Option, Some, None};
@@ -1595,7 +1595,7 @@ pub type SetAlgebraItems<'a, T, H> =
 mod test_map {
     use super::HashMap;
     use std::cmp::Equiv;
-    use std::hash::Hash;
+    use hash::Hash;
     use std::iter::{Iterator,range_inclusive,range_step_inclusive};
     use std::local_data;
     use std::vec;

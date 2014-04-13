@@ -24,6 +24,7 @@
 
 #![deny(deprecated_owned_vector)]
 
+extern crate hash;
 extern crate rand;
 
 #[cfg(test)] extern crate test;

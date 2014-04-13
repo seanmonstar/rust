@@ -155,7 +155,6 @@ pub mod num;
 pub mod iter;
 pub mod to_str;
 pub mod clone;
-pub mod hash;
 pub mod container;
 pub mod default;
 pub mod any;
@@ -221,7 +220,6 @@ mod std {
     pub use cmp;
     pub use comm;
     pub use fmt;
-    pub use hash;
     pub use io;
     pub use kinds;
     pub use local_data;
