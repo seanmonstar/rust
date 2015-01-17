@@ -633,10 +633,17 @@ impl<'a, 'b> Context<'a, 'b> {
                 ecx.ident_of("fmt"),
                 ecx.ident_of(trait_),
                 ecx.ident_of("fmt")]);
-        ecx.expr_call_global(sp, vec![
+        let hint_fn = ecx.path_global(sp, vec![
                 ecx.ident_of("std"),
                 ecx.ident_of("fmt"),
-                ecx.ident_of("argument")], vec![ecx.expr_path(format_fn), arg])
+                ecx.ident_of(trait_),
+                ecx.ident_of("size_hint")]);
+         ecx.expr_call_global(sp, vec![
+                ecx.ident_of("std"),
+                ecx.ident_of("fmt"),
+                ecx.ident_of("argument")], vec![ecx.expr_path(format_fn),
+                                                ecx.expr_path(hint_fn),
+                                                arg])
     }
 }
 

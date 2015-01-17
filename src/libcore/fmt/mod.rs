@@ -19,10 +19,11 @@ use char::CharExt;
 use iter::{Iterator, IteratorExt, range};
 use marker::{Copy, Sized};
 use mem;
+use num::Int;
 use option::Option;
 use option::Option::{Some, None};
 use result::Result::Ok;
-use ops::{Deref, FnOnce};
+use ops::{Add, Deref, FnOnce};
 use result;
 use slice::SliceExt;
 use slice;
@@ -131,6 +132,8 @@ enum Void {}
 pub struct Argument<'a> {
     value: &'a Void,
     formatter: fn(&Void, &mut Formatter) -> Result,
+    #[cfg(not(stage0))]
+    hint: fn(&Void) -> SizeHint,
 }
 
 impl<'a> Argument<'a> {
@@ -139,6 +142,7 @@ impl<'a> Argument<'a> {
         Display::fmt(x, f)
     }
 
+    #[cfg(stage0)]
     fn new<'b, T>(x: &'b T, f: fn(&T, &mut Formatter) -> Result) -> Argument<'b> {
         unsafe {
             Argument {
@@ -148,8 +152,27 @@ impl<'a> Argument<'a> {
         }
     }
 
+    #[cfg(not(stage0))]
+    #[unstable = "SizeHint may change"]
+    fn new<'b, T>(x: &'b T, f: fn(&T, &mut Formatter) -> Result, h: fn(&T) -> SizeHint)
+    -> Argument<'b> {
+        unsafe {
+            Argument {
+                formatter: mem::transmute(f),
+                hint: mem::transmute(h),
+                value: mem::transmute(x),
+            }
+        }
+    }
+
+    #[cfg(stage0)]
     fn from_uint(x: &uint) -> Argument {
         Argument::new(x, Argument::show_uint)
+    }
+
+    #[cfg(not(stage0))]
+    fn from_uint(x: &uint) -> Argument {
+        Argument::new(x, Argument::show_uint, Debug::size_hint)
     }
 
     fn as_uint(&self) -> Option<uint> {
@@ -222,12 +245,54 @@ impl<'a> Debug for Arguments<'a> {
     fn fmt(&self, fmt: &mut Formatter) -> Result {
         Display::fmt(self, fmt)
     }
+
+    fn size_hint(&self) -> SizeHint {
+        Display::size_hint(self)
+    }
 }
 
 #[stable]
 impl<'a> Display for Arguments<'a> {
     fn fmt(&self, fmt: &mut Formatter) -> Result {
         write(fmt.buf, *self)
+    }
+
+    #[cfg(not(stage0))]
+    fn size_hint(&self) -> SizeHint {
+        let pieces = self.pieces.iter().fold(0, |sum, piece| sum.saturating_add(piece.len()));
+        let args = self.args.iter().fold(SizeHint { min: 0, max: Some(0) }, |sum, arg| {
+            sum + (arg.hint)(arg.value)
+        });
+        args + SizeHint { min: pieces, max: Some(pieces) }
+    }
+}
+
+/// dox
+#[unstable = "SizeHint may change"]
+#[derive(Copy, Show, PartialEq)]
+pub struct SizeHint {
+    /// The minimum size needed for formatting.
+    pub min: usize,
+    /// The maximum size needed for formatting.
+    ///
+    /// None means unknown or larger than a usize can hold.
+    pub max: Option<usize>,
+}
+
+#[unstable = "SizeHint may change"]
+impl Add for SizeHint {
+    type Output = SizeHint;
+
+    #[inline]
+    fn add(self, other: SizeHint) -> SizeHint {
+        SizeHint {
+            min: self.min.saturating_add(other.min),
+            max: if let (Some(left), Some(right)) = (self.max, other.max) {
+                left.checked_add(right)
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -249,6 +314,12 @@ pub trait Show {
 pub trait Debug {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 #[cfg(not(stage0))]
@@ -266,6 +337,7 @@ pub trait String {
     fn fmt(&self, &mut Formatter) -> Result;
 }
 
+
 /// When a value can be semantically expressed as a String, this trait may be
 /// used. It corresponds to the default format, `{}`.
 #[unstable = "I/O and core have yet to be reconciled"]
@@ -274,6 +346,12 @@ pub trait String {
 pub trait Display {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 #[cfg(not(stage0))]
@@ -287,6 +365,12 @@ impl<T: String + ?Sized> Display for T {
 pub trait Octal {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 /// Format trait for the `b` character
@@ -294,6 +378,12 @@ pub trait Octal {
 pub trait Binary {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 /// Format trait for the `x` character
@@ -301,6 +391,12 @@ pub trait Binary {
 pub trait LowerHex {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 /// Format trait for the `X` character
@@ -308,6 +404,12 @@ pub trait LowerHex {
 pub trait UpperHex {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 /// Format trait for the `p` character
@@ -315,6 +417,12 @@ pub trait UpperHex {
 pub trait Pointer {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 /// Format trait for the `e` character
@@ -322,6 +430,12 @@ pub trait Pointer {
 pub trait LowerExp {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 /// Format trait for the `E` character
@@ -329,6 +443,12 @@ pub trait LowerExp {
 pub trait UpperExp {
     /// Formats the value using the given formatter.
     fn fmt(&self, &mut Formatter) -> Result;
+
+    /// Provides a hint as to size of the output for this trait.
+    #[unstable = "SizeHint may change"]
+    fn size_hint(&self) -> SizeHint {
+        SizeHint { min: 0, max: None }
+    }
 }
 
 /// The `write` function takes an output stream, a precompiled format string,
@@ -632,9 +752,21 @@ impl Display for Error {
 /// create the Argument structures that are passed into the `format` function.
 #[doc(hidden)] #[inline]
 #[unstable = "implementation detail of the `format_args!` macro"]
+#[cfg(stage0)]
 pub fn argument<'a, T>(f: fn(&T, &mut Formatter) -> Result,
                        t: &'a T) -> Argument<'a> {
     Argument::new(t, f)
+}
+
+/// This is a function which calls are emitted to by the compiler itself to
+/// create the Argument structures that are passed into the `format` function.
+#[doc(hidden)] #[inline]
+#[unstable = "implementation detail of the `format_args!` macro"]
+#[cfg(not(stage0))]
+pub fn argument<'a, T>(f: fn(&T, &mut Formatter) -> Result,
+                       h: fn(&T) -> SizeHint,
+                       t: &'a T) -> Argument<'a> {
+    Argument::new(t, f, h)
 }
 
 /// When the compiler determines that the type of an argument *must* be a uint

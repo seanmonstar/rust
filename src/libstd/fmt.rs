@@ -436,7 +436,9 @@ pub use core::fmt::{argument, argumentuint};
 #[unstable = "this is an implementation detail of format! and should not \
                   be called directly"]
 pub fn format(args: Arguments) -> string::String {
-    let mut output = string::String::new();
+    let min = String::size_hint(args);
+    let mut output = string::String::with_capacity(min);
     let _ = write!(&mut output, "{}", args);
+    output.shrink_to_fit();
     output
 }
