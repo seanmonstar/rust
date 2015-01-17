@@ -672,6 +672,32 @@ impl String {
     }
 }
 
+/// The format function takes a precompiled format string and a list of
+/// arguments, to return the resulting formatted string.
+///
+/// # Arguments
+///
+///   * args - a structure of arguments generated via the `format_args!` macro.
+///
+/// # Example
+///
+/// ```rust
+/// use std::string;
+///
+/// let s = string::format(format_args!("Hello, {}!", "world"));
+/// assert_eq!(s, "Hello, world!".to_string());
+/// ```
+#[unstable = "this is an implementation detail of format! and should not \
+                  be called directly"]
+pub fn format(args: fmt::Arguments) -> String {
+    use core::fmt::Writer;
+    let hint = fmt::Display::size_hint(&args);
+    let mut output = String::with_capacity(hint.min);
+    let _ = write!(&mut output, "{}", args);
+    output.shrink_to_fit();
+    output
+}
+
 impl FromUtf8Error {
     /// Consume this error, returning the bytes that were attempted to make a
     /// `String` with.
@@ -942,11 +968,7 @@ pub trait ToString {
 impl<T: fmt::Display + ?Sized> ToString for T {
     #[inline]
     fn to_string(&self) -> String {
-        use core::fmt::Writer;
-        let mut buf = String::new();
-        let _ = buf.write_fmt(format_args!("{}", self));
-        buf.shrink_to_fit();
-        buf
+        format!("{}", self)
     }
 }
 

@@ -196,6 +196,7 @@ fn test_print() {
 // can do with them just yet (to test the output)
 fn test_format_args() {
     use std::fmt::Writer;
+    use std::string;
     let mut buf = String::new();
     {
         let w = &mut buf;
@@ -206,7 +207,7 @@ fn test_format_args() {
     let s = buf;
     t!(s, "1test3");
 
-    let s = fmt::format(format_args!("hello {}", "world"));
+    let s = string::format(format_args!("hello {}", "world"));
     t!(s, "hello world");
     let s = format!("{}: {}", "args were", format_args!("hello {}", "world"));
     t!(s, "args were: hello world");

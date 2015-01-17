@@ -22,3 +22,19 @@ macro_rules! vec {
     );
     ($($x:expr,)*) => (vec![$($x),*])
 }
+
+/// Use the syntax described in `std::fmt` to create a value of type `String`.
+/// See `std::fmt` for more information.
+///
+/// # Example
+///
+/// ```
+/// format!("test");
+/// format!("hello {}", "world!");
+/// format!("x = {}, y = {y}", 10i, y = 30i);
+/// ```
+#[macro_export]
+#[stable]
+macro_rules! format {
+    ($($arg:tt)*) => ($crate::string::format(format_args!($($arg)*)))
+}

@@ -130,7 +130,7 @@ extern crate log;
 extern crate core;
 
 #[macro_use]
-#[macro_reexport(vec)]
+#[macro_reexport(format, vec)]
 extern crate "collections" as core_collections;
 
 extern crate "rand" as core_rand;

@@ -405,9 +405,7 @@
 
 #![unstable]
 
-use string;
-
-pub use core::fmt::{Formatter, Result, Writer, rt};
+pub use core::fmt::{Formatter, Result, Writer, rt, SizeHint};
 pub use core::fmt::{Show, String, Octal, Binary};
 pub use core::fmt::{Display, Debug};
 pub use core::fmt::{LowerHex, UpperHex, Pointer};
@@ -417,28 +415,3 @@ pub use core::fmt::{Argument, Arguments, write, radix, Radix, RadixFmt};
 
 #[doc(hidden)]
 pub use core::fmt::{argument, argumentuint};
-
-/// The format function takes a precompiled format string and a list of
-/// arguments, to return the resulting formatted string.
-///
-/// # Arguments
-///
-///   * args - a structure of arguments generated via the `format_args!` macro.
-///
-/// # Example
-///
-/// ```rust
-/// use std::fmt;
-///
-/// let s = fmt::format(format_args!("Hello, {}!", "world"));
-/// assert_eq!(s, "Hello, world!".to_string());
-/// ```
-#[unstable = "this is an implementation detail of format! and should not \
-                  be called directly"]
-pub fn format(args: Arguments) -> string::String {
-    let min = String::size_hint(args);
-    let mut output = string::String::with_capacity(min);
-    let _ = write!(&mut output, "{}", args);
-    output.shrink_to_fit();
-    output
-}
