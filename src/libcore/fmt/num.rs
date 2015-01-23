@@ -17,6 +17,7 @@
 use fmt;
 use iter::IteratorExt;
 use num::{Int, cast};
+use option::Option::Some;
 use slice::SliceExt;
 use str;
 
@@ -31,6 +32,20 @@ trait GenericRadix {
 
     /// Converts an integer to corresponding radix digit.
     fn digit(&self, x: u8) -> u8;
+
+    fn num_digits<T: Int>(&self, mut x: T) -> usize {
+        let mut digits = 0;
+        let base = cast(self.base()).unwrap();
+        let zero = Int::zero();
+        if x < zero {
+            digits = 1;
+        }
+        while x != zero {
+            x = x / base;
+            digits += 1;
+        }
+        digits
+    }
 
     /// Format an integer using the radix using a formatter.
     fn fmt_int<T: Int>(&self, mut x: T, f: &mut fmt::Formatter) -> fmt::Result {
@@ -153,17 +168,32 @@ pub fn radix<T>(x: T, base: u8) -> RadixFmt<T, Radix> {
 }
 
 macro_rules! radix_fmt {
-    ($T:ty as $U:ty, $fmt:ident, $S:expr) => {
+    ($T:ty as $U:ty, $fmt:ident) => {
         #[stable]
         impl fmt::Debug for RadixFmt<$T, Radix> {
+            #[inline]
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 fmt::Display::fmt(self, f)
+            }
+            #[inline]
+            fn size_hint(&self) -> fmt::SizeHint {
+                fmt::Display::size_hint(self)
             }
         }
         #[stable]
         impl fmt::Display for RadixFmt<$T, Radix> {
+            #[inline]
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 match *self { RadixFmt(ref x, radix) => radix.$fmt(*x as $U, f) }
+            }
+            #[inline]
+            fn size_hint(&self) -> fmt::SizeHint {
+                match *self {
+                    RadixFmt(ref x, radix) => {
+                        let digits = radix.num_digits(*x as $U);
+                        fmt::SizeHint { min: digits, max: Some(digits) }
+                    }
+                }
             }
         }
     }
@@ -175,43 +205,35 @@ macro_rules! int_base {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 $Radix.fmt_int(*self as $U, f)
             }
-        }
-    }
-}
-
-macro_rules! show {
-    ($T:ident with $S:expr) => {
-        #[stable]
-        impl fmt::Debug for $T {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                fmt::Display::fmt(self, f)
+            fn size_hint(&self) -> fmt::SizeHint {
+                let digits = $Radix.num_digits(*self as $U);
+                fmt::SizeHint { min: digits, max: Some(digits) }
             }
         }
     }
 }
+
 macro_rules! integer {
     ($Int:ident, $Uint:ident) => {
-        integer! { $Int, $Uint, stringify!($Int), stringify!($Uint) }
-    };
-    ($Int:ident, $Uint:ident, $SI:expr, $SU:expr) => {
         int_base! { Display  for $Int as $Int   -> Decimal }
+        int_base! { Debug    for $Int as $Int   -> Decimal }
         int_base! { Binary   for $Int as $Uint  -> Binary }
         int_base! { Octal    for $Int as $Uint  -> Octal }
         int_base! { LowerHex for $Int as $Uint  -> LowerHex }
         int_base! { UpperHex for $Int as $Uint  -> UpperHex }
-        radix_fmt! { $Int as $Int, fmt_int, $SI }
-        show! { $Int with $SI }
+        radix_fmt! { $Int as $Int, fmt_int }
 
         int_base! { Display  for $Uint as $Uint -> Decimal }
+        int_base! { Debug    for $Uint as $Uint -> Decimal }
         int_base! { Binary   for $Uint as $Uint -> Binary }
         int_base! { Octal    for $Uint as $Uint -> Octal }
         int_base! { LowerHex for $Uint as $Uint -> LowerHex }
         int_base! { UpperHex for $Uint as $Uint -> UpperHex }
-        radix_fmt! { $Uint as $Uint, fmt_int, $SU }
-        show! { $Uint with $SU }
+        radix_fmt! { $Uint as $Uint, fmt_int }
     }
 }
-integer! { int, uint, "i", "u" }
+
+integer! { int, uint }
 integer! { i8, u8 }
 integer! { i16, u16 }
 integer! { i32, u32 }

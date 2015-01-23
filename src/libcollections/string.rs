@@ -846,6 +846,11 @@ impl fmt::Display for String {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
     }
+
+    #[inline]
+    fn size_hint(&self) -> fmt::SizeHint {
+        fmt::Display::size_hint(&**self)
+    }
 }
 
 #[stable]
@@ -853,6 +858,11 @@ impl fmt::Debug for String {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> fmt::SizeHint {
+        fmt::Display::size_hint(&**self)
     }
 }
 

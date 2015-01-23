@@ -785,10 +785,12 @@ macro_rules! fmt_refs {
         #[stable]
         impl<'a, T: ?Sized + $tr> $tr for &'a T {
             fn fmt(&self, f: &mut Formatter) -> Result { $tr::fmt(&**self, f) }
+            fn size_hint(&self) -> SizeHint { $tr::size_hint(&**self) }
         }
         #[stable]
         impl<'a, T: ?Sized + $tr> $tr for &'a mut T {
             fn fmt(&self, f: &mut Formatter) -> Result { $tr::fmt(&**self, f) }
+            fn size_hint(&self) -> SizeHint { $tr::size_hint(&**self) }
         }
         )*
     }
@@ -801,12 +803,23 @@ impl Debug for bool {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Display::fmt(self, f)
     }
+
+    fn size_hint(&self) -> SizeHint {
+        Display::size_hint(self)
+    }
 }
 
 #[stable]
 impl Display for bool {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Display::fmt(if *self { "true" } else { "false" }, f)
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        SizeHint {
+            min: 4,
+            max: Some(5)
+        }
     }
 }
 
@@ -819,12 +832,28 @@ impl Debug for str {
         }
         write!(f, "\"")
     }
+
+    fn size_hint(&self) -> SizeHint {
+        let len = self.len();
+        SizeHint {
+            min: len + 2,
+            max: None
+        }
+    }
 }
 
 #[stable]
 impl Display for str {
     fn fmt(&self, f: &mut Formatter) -> Result {
         f.pad(self)
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        let len = self.len();
+        SizeHint {
+            min: len,
+            max: Some(len)
+        }
     }
 }
 
@@ -838,6 +867,13 @@ impl Debug for char {
         }
         write!(f, "'")
     }
+
+    fn size_hint(&self) -> SizeHint {
+        SizeHint {
+            min: 3,
+            max: None
+        }
+    }
 }
 
 #[stable]
@@ -847,6 +883,13 @@ impl Display for char {
         let amt = self.encode_utf8(&mut utf8).unwrap_or(0);
         let s: &str = unsafe { mem::transmute(&utf8[..amt]) };
         Display::fmt(s, f)
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        SizeHint {
+            min: 1,
+            max: Some(4)
+        }
     }
 }
 
@@ -858,12 +901,23 @@ impl<T> Pointer for *const T {
         f.flags &= !(1 << (rt::FlagAlternate as uint));
         ret
     }
+
+    fn size_hint(&self) -> SizeHint {
+        SizeHint {
+            min: 1,
+            max: Some(4)
+        }
+    }
 }
 
 #[stable]
 impl<T> Pointer for *mut T {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Pointer::fmt(&(*self as *const T), f)
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        Pointer::size_hint(&(*self as *const T))
     }
 }
 
@@ -872,12 +926,20 @@ impl<'a, T> Pointer for &'a T {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Pointer::fmt(&(*self as *const T), f)
     }
+
+    fn size_hint(&self) -> SizeHint {
+        Pointer::size_hint(&(*self as *const T))
+    }
 }
 
 #[stable]
 impl<'a, T> Pointer for &'a mut T {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Pointer::fmt(&(&**self as *const T), f)
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        Pointer::size_hint(&(*self as *const T))
     }
 }
 
@@ -887,6 +949,14 @@ macro_rules! floating { ($ty:ident) => {
     impl Debug for $ty {
         fn fmt(&self, fmt: &mut Formatter) -> Result {
             Display::fmt(self, fmt)
+        }
+
+        fn size_hint(&self) -> SizeHint {
+            let suffix = stringify!($ty).len();
+            Display::size_hint(self) + SizeHint {
+                min: suffix,
+                max: Some(suffix)
+            }
         }
     }
 
@@ -910,6 +980,7 @@ macro_rules! floating { ($ty:ident) => {
                 fmt.pad_integral(self.is_nan() || *self >= 0.0, "", bytes)
             })
         }
+        //TODO: size_hint
     }
 
     #[stable]
@@ -932,6 +1003,7 @@ macro_rules! floating { ($ty:ident) => {
                 fmt.pad_integral(self.is_nan() || *self >= 0.0, "", bytes)
             })
         }
+        //TODO: size_hint
     }
 
     #[stable]
@@ -954,6 +1026,7 @@ macro_rules! floating { ($ty:ident) => {
                 fmt.pad_integral(self.is_nan() || *self >= 0.0, "", bytes)
             })
         }
+        //TODO: size_hint
     }
 } }
 floating! { f32 }
@@ -964,10 +1037,12 @@ floating! { f64 }
 #[stable]
 impl<T> Debug for *const T {
     fn fmt(&self, f: &mut Formatter) -> Result { Pointer::fmt(self, f) }
+    fn size_hint(&self) -> SizeHint { Pointer::size_hint(self) }
 }
 #[stable]
 impl<T> Debug for *mut T {
     fn fmt(&self, f: &mut Formatter) -> Result { Pointer::fmt(self, f) }
+    fn size_hint(&self) -> SizeHint { Pointer::size_hint(self) }
 }
 
 macro_rules! peel {
@@ -996,6 +1071,19 @@ macro_rules! tuple {
                 }
                 write!(f, ")")
             }
+
+            #[allow(non_snake_case, unused_assignments)]
+            fn size_hint(&self) -> SizeHint {
+                let ($(ref $name,)*) = *self;
+                $(
+                    Debug::size_hint($name) +
+                    SizeHint { min: 1, max: Some(2) } +
+                )*
+                SizeHint {
+                    min: 2,
+                    max: Some(2)
+                }
+            }
         }
         peel! { $($name,)* }
     )
@@ -1006,6 +1094,7 @@ tuple! { T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, }
 #[stable]
 impl<'a> Debug for &'a (any::Any+'a) {
     fn fmt(&self, f: &mut Formatter) -> Result { f.pad("&Any") }
+    fn size_hint(&self) -> SizeHint { SizeHint { min: 4, max: Some(4) } }
 }
 
 #[stable]
@@ -1028,6 +1117,22 @@ impl<T: Debug> Debug for [T] {
         }
         Ok(())
     }
+
+    fn size_hint(&self) -> SizeHint {
+        let pieces = self.iter().fold(SizeHint { min: 0, max: Some(0) }, |sum, piece| {
+            sum + Debug::size_hint(piece)
+        });
+        let len = self.len();
+        //TODO: size_hint
+        // 2 for []
+        // 2 for each ", "
+        let rigging = 2.saturating_add(len.saturating_sub(1) * 2);
+
+        pieces + SizeHint {
+            min: rigging,
+            max: Some(rigging)
+        }
+    }
 }
 
 #[stable]
@@ -1035,6 +1140,8 @@ impl Debug for () {
     fn fmt(&self, f: &mut Formatter) -> Result {
         f.pad("()")
     }
+
+    fn size_hint(&self) -> SizeHint { SizeHint { min: 2, max: Some(2) } }
 }
 
 #[stable]
@@ -1042,6 +1149,7 @@ impl<T: Copy + Debug> Debug for Cell<T> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "Cell {{ value: {:?} }}", self.get())
     }
+    //TODO: size_hint
 }
 
 #[stable]
@@ -1052,6 +1160,19 @@ impl<T: Debug> Debug for RefCell<T> {
             None => write!(f, "RefCell {{ <borrowed> }}")
         }
     }
+
+    fn size_hint(&self) -> SizeHint {
+        match self.try_borrow() {
+            Some(val) => Debug::size_hint(&*val) + SizeHint {
+                min: 20,
+                max: Some(20),
+            },
+            None => SizeHint {
+                min: 22,
+                max: Some(22)
+            }
+        }
+    }
 }
 
 #[stable]
@@ -1059,6 +1180,7 @@ impl<'b, T: Debug> Debug for Ref<'b, T> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Debug::fmt(&**self, f)
     }
+    fn size_hint(&self) -> SizeHint { Debug::size_hint(&**self) }
 }
 
 #[stable]
@@ -1066,6 +1188,8 @@ impl<'b, T: Debug> Debug for RefMut<'b, T> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         Debug::fmt(&*(self.deref()), f)
     }
+
+    fn size_hint(&self) -> SizeHint { Debug::size_hint(&**self) }
 }
 
 // If you expected tests to be here, look instead at the run-pass/ifmt.rs test,

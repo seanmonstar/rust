@@ -266,6 +266,21 @@ impl fmt::Display for Utf8Error {
             }
         }
     }
+
+    fn size_hint(&self) -> fmt::SizeHint {
+        match *self {
+            Utf8Error::InvalidByte(n) => {
+                fmt::Display::size_hint(&n) + fmt::SizeHint {
+                    min: 37,
+                    max: Some(37),
+                }
+            }
+            Utf8Error::TooShort => fmt::SizeHint {
+                min: 35,
+                max: Some(35),
+            }
+        }
+    }
 }
 
 /*

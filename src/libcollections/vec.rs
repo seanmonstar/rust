@@ -1499,6 +1499,11 @@ impl<T: fmt::Debug> fmt::Debug for Vec<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self.as_slice(), f)
     }
+
+    #[inline]
+    fn size_hint(&self) -> fmt::SizeHint {
+        fmt::Debug::size_hint(self.as_slice())
+    }
 }
 
 impl<'a> fmt::Writer for Vec<u8> {
