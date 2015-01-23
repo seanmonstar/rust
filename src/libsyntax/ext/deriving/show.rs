@@ -20,6 +20,7 @@ use parse::token;
 use ptr::P;
 
 use std::collections::HashMap;
+use std::num::Int;
 
 pub fn expand_deriving_show<F>(cx: &mut ExtCtxt,
                                span: Span,
@@ -38,7 +39,7 @@ pub fn expand_deriving_show<F>(cx: &mut ExtCtxt,
         path: Path::new(vec!("std", "fmt", "Debug")),
         additional_bounds: Vec::new(),
         generics: LifetimeBounds::empty(),
-        methods: vec!(
+        methods: vec![
             MethodDef {
                 name: "fmt",
                 generics: LifetimeBounds::empty(),
@@ -49,8 +50,19 @@ pub fn expand_deriving_show<F>(cx: &mut ExtCtxt,
                 combine_substructure: combine_substructure(box |a, b, c| {
                     show_substructure(a, b, c)
                 })
+            },
+            MethodDef {
+                name: "size_hint",
+                generics: LifetimeBounds::empty(),
+                explicit_self: borrowed_explicit_self(),
+                args: vec![],
+                ret_ty: Literal(Path::new(vec!("std", "fmt", "SizeHint"))),
+                attributes: Vec::new(),
+                combine_substructure: combine_substructure(box |a, b, c| {
+                    size_hint_substructure(a, b, c)
+                })
             }
-        )
+        ]
     };
     trait_def.expand(cx, mitem, item, push)
 }
@@ -137,4 +149,88 @@ fn show_substructure(cx: &mut ExtCtxt, span: Span,
                                              exprs, vec![], HashMap::new())
     ];
     cx.expr_method_call(span, formatter, meth, args)
+}
+
+fn size_hint_substructure(cx: &mut ExtCtxt, span: Span,
+                          substr: &Substructure) -> P<Expr> {
+    let name = match *substr.fields {
+        Struct(_) => substr.type_ident,
+        EnumMatching(_, v, _) => v.node.name,
+        EnumNonMatchingCollapsed(..) | StaticStruct(..) | StaticEnum(..) => {
+            cx.span_bug(span, "nonsensical .fields in `#[derive(Debug)]`")
+        }
+    };
+    let mut min = token::get_ident(name).get().len();
+    let mut max = Some(min);
+    let mut exprs = Vec::new();
+
+    { // borrow checking
+        let mut add = |&mut: num| {
+            min = min.saturating_add(num);
+            max = max.and_then(|n| n.checked_add(num))
+        };
+
+        // the internal fields we're actually formatting
+
+        // Getting harder... making the format string:
+        match *substr.fields {
+            // unit struct/nullary variant: no work necessary!
+            Struct(ref fields) if fields.len() == 0 => {}
+            EnumMatching(_, _, ref fields) if fields.len() == 0 => {}
+
+            Struct(ref fields) | EnumMatching(_, _, ref fields) => {
+                if fields[0].name.is_none() {
+                    // tuple struct/"normal" variant
+                    add(1); // '('
+                    for (i, field) in fields.iter().enumerate() {
+                        if i != 0 { add(2); } // ', '
+                        exprs.push(field.self_.clone());
+                    }
+                    add(1); // ')'
+                } else {
+                    // normal struct/struct variant
+
+                    add(2); // ' {'
+                    for (i, field) in fields.iter().enumerate() {
+                        if i != 0 { add(1); } // ','
+                        add(1); // ' '
+                        add(token::get_ident(field.name.unwrap()).get().len());
+                        add(2); // ': '
+                        exprs.push(field.self_.clone());
+                    }
+
+                    add(2); // ' }'
+                }
+            }
+            _ => unreachable!()
+        }
+    }
+
+    let max_expr = if let Some(max) = max {
+        cx.expr_some(span, cx.expr_usize(span, max))
+    } else {
+        cx.expr_none(span)
+    };
+    let hint = cx.expr_struct(span,
+                              cx.path_global(span,
+                                             vec![cx.ident_of("std"),
+                                                  cx.ident_of("fmt"),
+                                                  cx.ident_of("SizeHint")]),
+                              vec![cx.field_imm(span,
+                                                cx.ident_of("min"),
+                                                cx.expr_usize(span, min)),
+                                   cx.field_imm(span,
+                                                cx.ident_of("max"),
+                                                max_expr)]);
+    exprs.into_iter().fold(hint, |sum, expr| {
+        cx.expr_binary(span,
+                       ast::BiAdd,
+                       sum,
+                       cx.expr_call_global(span,
+                                           vec![cx.ident_of("std"),
+                                                cx.ident_of("fmt"),
+                                                cx.ident_of("Debug"),
+                                                cx.ident_of("size_hint")],
+                                           vec![cx.expr_addr_of(span, expr)]))
+    })
 }

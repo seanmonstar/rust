@@ -30,6 +30,11 @@ macro_rules! t {
     }
 }
 
+macro_rules! s {
+    ($x:expr, $min:expr, $max:expr) => {
+        assert_eq!(::std::fmt::Debug::size_hint(&$x), ::std::fmt::SizeHint { min: $min, max: $max })
+    }
+}
 
 pub fn main() {
     t!(Unit, "Unit");
@@ -38,4 +43,11 @@ pub fn main() {
     t!(Enum::Nullary, "Nullary");
     t!(Enum::Variant(1, 2), "Variant(1, 2)");
     t!(Enum::StructVariant { x: 1, y: 2 }, "StructVariant { x: 1, y: 2 }");
+
+    s!(Unit, 4, Some(4));
+    s!(Tuple(1, 2), 11, Some(11));
+    s!(Struct { x: 1, y: 2 }, 21, Some(21));
+    s!(Enum::Nullary, 7, Some(7));
+    s!(Enum::Variant(1, 2), 13, Some(13));
+    s!(Enum::StructVariant { x: 1, y: 2 }, 28, Some(28));
 }
