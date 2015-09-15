@@ -1530,6 +1530,10 @@ impl<A, B> PartialEq<[B]> for [A] where A: PartialEq<B> {
             return false;
         }
 
+        if self.as_ptr() == other.as_ptr() {
+            return true;
+        }
+
         for i in 0..self.len() {
             if !self[i].eq(&other[i]) {
                 return false;
@@ -1541,6 +1545,10 @@ impl<A, B> PartialEq<[B]> for [A] where A: PartialEq<B> {
     fn ne(&self, other: &[B]) -> bool {
         if self.len() != other.len() {
             return true;
+        }
+
+        if self.as_ptr() == other.as_ptr() {
+            return false;
         }
 
         for i in 0..self.len() {

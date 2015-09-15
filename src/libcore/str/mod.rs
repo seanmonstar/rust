@@ -896,7 +896,7 @@ Section: Comparing strings
 #[lang = "str_eq"]
 #[inline]
 fn eq_slice(a: &str, b: &str) -> bool {
-    a.len() == b.len() && unsafe { cmp_slice(a, b, a.len()) == 0 }
+    unsafe { cmp_slice(a, b, a.len()) == 0 }
 }
 
 /// Bytewise slice comparison.
@@ -907,7 +907,11 @@ unsafe fn cmp_slice(a: &str, b: &str, len: usize) -> i32 {
     // NOTE: In theory n should be libc::size_t and not usize, but libc is not available here
     #[allow(improper_ctypes)]
     extern { fn memcmp(s1: *const i8, s2: *const i8, n: usize) -> i32; }
-    memcmp(a.as_ptr() as *const i8, b.as_ptr() as *const i8, len)
+    if a.len() == b.len() && a.as_ptr() == b.as_ptr() {
+        0
+    } else {
+        memcmp(a.as_ptr() as *const i8, b.as_ptr() as *const i8, len)
+    }
 }
 
 /*
