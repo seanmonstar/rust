@@ -19,7 +19,7 @@ use self::pattern::{Searcher, ReverseSearcher, DoubleEndedSearcher};
 
 use char::{self, CharExt};
 use clone::Clone;
-use convert::AsRef;
+use convert::{AsRef, TryFrom};
 use default::Default;
 use fmt;
 use iter::ExactSizeIterator;
@@ -70,6 +70,16 @@ pub trait FromStr: Sized {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     fn from_str(s: &str) -> Result<Self, Self::Err>;
+}
+
+#[unstable(feature = "try_from", issue = "33417")]
+impl<'a, T: FromStr> TryFrom<&'a str> for T {
+    type Err = <T as FromStr>::Err;
+
+    #[inline]
+    default fn try_from(s: &str) -> Result<T, Self::Err> {
+        T::from_str(s)
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
@@ -1724,7 +1734,7 @@ pub trait StrExt {
     #[stable(feature = "core", since = "1.6.0")]
     fn is_empty(&self) -> bool;
     #[stable(feature = "core", since = "1.6.0")]
-    fn parse<T: FromStr>(&self) -> Result<T, T::Err>;
+    fn parse<'a, T: TryFrom<&'a str>>(&'a self) -> Result<T, T::Err>;
 }
 
 // truncate `&str` to length at most equal to `max`
@@ -2066,7 +2076,7 @@ impl StrExt for str {
     fn is_empty(&self) -> bool { self.len() == 0 }
 
     #[inline]
-    fn parse<T: FromStr>(&self) -> Result<T, T::Err> { FromStr::from_str(self) }
+    fn parse<'a, T: TryFrom<&'a str>>(&'a self) -> Result<T, T::Err> { T::try_from(self) }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
