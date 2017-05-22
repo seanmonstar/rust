@@ -18,6 +18,7 @@ use mem;
 use num::flt2dec;
 use ops::Deref;
 use result;
+#[cfg(stage0)]
 use slice;
 use str;
 
@@ -198,6 +199,7 @@ pub trait Write {
     /// assert_eq!(&buf, "world");
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[inline]
     fn write_fmt(&mut self, args: Arguments) -> Result {
         // This Adapter is needed to allow `self` (of type `&mut
         // Self`) to be cast to a Write (below) without
@@ -207,14 +209,17 @@ pub trait Write {
         impl<'a, T: ?Sized> Write for Adapter<'a, T>
             where T: Write
         {
+            #[inline]
             fn write_str(&mut self, s: &str) -> Result {
                 self.0.write_str(s)
             }
 
+            #[inline]
             fn write_char(&mut self, c: char) -> Result {
                 self.0.write_char(c)
             }
 
+            #[inline]
             fn write_fmt(&mut self, args: Arguments) -> Result {
                 self.0.write_fmt(args)
             }
@@ -244,6 +249,23 @@ impl<'a, W: Write + ?Sized> Write for &'a mut W {
 /// traits.
 #[allow(missing_debug_implementations)]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[cfg(not(stage0))]
+pub struct Formatter<'a> {
+    flags: u32,
+    fill: char,
+    align: rt::v1::Alignment,
+    width: Option<usize>,
+    precision: Option<usize>,
+
+    buf: &'a mut (Write+'a),
+}
+
+/// A struct to represent both where to emit formatting strings to and how they
+/// should be formatted. A mutable version of this is passed to all formatting
+/// traits.
+#[allow(missing_debug_implementations)]
+#[stable(feature = "rust1", since = "1.0.0")]
+#[cfg(stage0)]
 pub struct Formatter<'a> {
     flags: u32,
     fill: char,
@@ -259,6 +281,7 @@ pub struct Formatter<'a> {
 // NB. Argument is essentially an optimized partially applied formatting function,
 // equivalent to `exists T.(&T, fn(&T, &mut Formatter) -> Result`.
 
+#[cfg(stage0)]
 struct Void {
     _priv: (),
     /// Erases all oibits, because `Void` erases the type of the object that
@@ -280,6 +303,7 @@ struct Void {
 #[unstable(feature = "fmt_internals", reason = "internal to format_args!",
            issue = "0")]
 #[doc(hidden)]
+#[cfg(stage0)]
 pub struct ArgumentV1<'a> {
     value: &'a Void,
     formatter: fn(&Void, &mut Formatter) -> Result,
@@ -287,12 +311,14 @@ pub struct ArgumentV1<'a> {
 
 #[unstable(feature = "fmt_internals", reason = "internal to format_args!",
            issue = "0")]
+#[cfg(stage0)]
 impl<'a> Clone for ArgumentV1<'a> {
     fn clone(&self) -> ArgumentV1<'a> {
         *self
     }
 }
 
+#[cfg(stage0)]
 impl<'a> ArgumentV1<'a> {
     #[inline(never)]
     fn show_usize(x: &usize, f: &mut Formatter) -> Result {
@@ -332,6 +358,7 @@ impl<'a> ArgumentV1<'a> {
 #[derive(Copy, Clone)]
 enum FlagV1 { SignPlus, SignMinus, Alternate, SignAwareZeroPad, }
 
+#[cfg(stage0)]
 impl<'a> Arguments<'a> {
     /// When using the format_args!() macro, this function is used to generate the
     /// Arguments structure.
@@ -392,6 +419,53 @@ impl<'a> Arguments<'a> {
         }
     }
 }
+#[cfg(not(stage0))]
+impl<'a> Arguments<'a> {
+    /// Estimates the length of the formatted text.
+    ///
+    /// This is intended to be used for setting initial `String` capacity
+    /// when using `format!`. Note: this is neither the lower nor upper bound.
+    #[doc(hidden)] #[inline]
+    #[unstable(feature = "fmt_internals", reason = "internal to format_args!",
+               issue = "0")]
+    pub fn estimated_capacity(&self) -> usize {
+        16
+    }
+}
+/// This structure represents a safely precompiled version of a format string
+/// and its arguments. This cannot be generated at runtime because it cannot
+/// safely be done, so no constructors are given and the fields are private
+/// to prevent modification.
+///
+/// The [`format_args!`] macro will safely create an instance of this structure
+/// and pass it to a function or closure, passed as the first argument. The
+/// macro validates the format string at compile-time so usage of the [`write`]
+/// and [`format`] functions can be safely performed.
+///
+/// [`format_args!`]: ../../std/macro.format_args.html
+/// [`format`]: ../../std/fmt/fn.format.html
+/// [`write`]: ../../std/fmt/fn.write.html
+#[stable(feature = "rust1", since = "1.0.0")]
+#[derive(Copy, Clone)]
+#[cfg(not(stage0))]
+pub struct Arguments<'a> {
+    #[doc(hidden)]
+    #[unstable(feature = "fmt_internals", reason = "internal to format_args!",
+           issue = "0")]
+    pub closure: &'a Fn(&mut Formatter) -> Result,
+    /*
+    // Format string pieces to print.
+    pieces: &'a [&'a str],
+
+    // Placeholder specs, or `None` if all specs are default (as in "{}{}").
+    fmt: Option<&'a [rt::v1::Argument]>,
+
+    // Dynamic arguments for interpolation, to be interleaved with string
+    // pieces. (Every argument is preceded by a string piece.)
+    args: &'a [ArgumentV1<'a>],
+    */
+}
+
 
 /// This structure represents a safely precompiled version of a format string
 /// and its arguments. This cannot be generated at runtime because it cannot
@@ -408,6 +482,7 @@ impl<'a> Arguments<'a> {
 /// [`write`]: ../../std/fmt/fn.write.html
 #[stable(feature = "rust1", since = "1.0.0")]
 #[derive(Copy, Clone)]
+#[cfg(stage0)]
 pub struct Arguments<'a> {
     // Format string pieces to print.
     pieces: &'a [&'a str],
@@ -422,6 +497,7 @@ pub struct Arguments<'a> {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a> Debug for Arguments<'a> {
+    #[inline]
     fn fmt(&self, fmt: &mut Formatter) -> Result {
         Display::fmt(self, fmt)
     }
@@ -429,6 +505,7 @@ impl<'a> Debug for Arguments<'a> {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl<'a> Display for Arguments<'a> {
+    #[inline]
     fn fmt(&self, fmt: &mut Formatter) -> Result {
         write(fmt.buf, *self)
     }
@@ -993,6 +1070,50 @@ pub trait UpperExp {
 ///
 /// [`write!`]: ../../std/macro.write.html
 #[stable(feature = "rust1", since = "1.0.0")]
+#[cfg(not(stage0))]
+#[inline]
+pub fn write(output: &mut Write, args: Arguments) -> Result {
+    (args.closure)(&mut Formatter::new(output))
+}
+
+
+
+/// The `write` function takes an output stream, a precompiled format string,
+/// and a list of arguments. The arguments will be formatted according to the
+/// specified format string into the output stream provided.
+///
+/// # Arguments
+///
+///   * output - the buffer to write output to
+///   * args - the precompiled arguments generated by `format_args!`
+///
+/// # Examples
+///
+/// Basic usage:
+///
+/// ```
+/// use std::fmt;
+///
+/// let mut output = String::new();
+/// fmt::write(&mut output, format_args!("Hello {}!", "world"))
+///     .expect("Error occurred while trying to write in String");
+/// assert_eq!(output, "Hello world!");
+/// ```
+///
+/// Please note that using [`write!`] might be preferrable. Example:
+///
+/// ```
+/// use std::fmt::Write;
+///
+/// let mut output = String::new();
+/// write!(&mut output, "Hello {}!", "world")
+///     .expect("Error occurred while trying to write in String");
+/// assert_eq!(output, "Hello world!");
+/// ```
+///
+/// [`write!`]: ../../std/macro.write.html
+#[stable(feature = "rust1", since = "1.0.0")]
+#[cfg(stage0)]
 pub fn write(output: &mut Write, args: Arguments) -> Result {
     let mut formatter = Formatter {
         flags: 0,
@@ -1034,9 +1155,52 @@ pub fn write(output: &mut Write, args: Arguments) -> Result {
 }
 
 impl<'a> Formatter<'a> {
+
+    #[cfg(not(stage0))]
+    #[doc(hidden)]
+    #[unstable(feature = "fmt_internals", reason = "internal to format_args!",
+           issue = "0")]
+    #[inline]
+    pub fn new(buf: &'a mut Write) -> Formatter<'a> {
+        Formatter {
+            flags: 0,
+            width: None,
+            precision: None,
+            buf: buf,
+            align: rt::v1::Alignment::Unknown,
+            fill: ' ',
+        }
+    }
+
+    #[cfg(not(stage0))]
+    #[doc(hidden)]
+    #[unstable(feature = "fmt_internals", reason = "internal to format_args!",
+           issue = "0")]
+    #[inline]
+    pub fn new_with_spec(buf: &'a mut Write, spec: rt::v1::FormatSpec) -> Formatter<'a> {
+        Formatter {
+            flags: spec.flags,
+            width: spec.width,
+            precision: spec.precision,
+            buf: buf,
+            align: spec.align,
+            fill: spec.fill,
+        }
+    }
+
+    #[cfg(not(stage0))]
+    #[doc(hidden)]
+    #[unstable(feature = "fmt_internals", reason = "internal to format_args!",
+           issue = "0")]
+    #[inline]
+    pub fn buf(&mut self) -> &mut Write {
+        self.buf
+    }
+
     // First up is the collection of functions used to execute a format string
     // at runtime. This consumes all of the compile-time statics generated by
     // the format! syntax extension.
+    #[cfg(stage0)]
     fn run(&mut self, arg: &rt::v1::Argument) -> Result {
         // Fill in the format parameters into the formatter
         self.fill = arg.format.fill;
@@ -1055,6 +1219,7 @@ impl<'a> Formatter<'a> {
         (value.formatter)(value.value, self)
     }
 
+    #[cfg(stage0)]
     fn getcount(&mut self, cnt: &rt::v1::Count) -> Option<usize> {
         match *cnt {
             rt::v1::Count::Is(n) => Some(n),
@@ -1313,12 +1478,14 @@ impl<'a> Formatter<'a> {
     /// Writes some data to the underlying buffer contained within this
     /// formatter.
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[inline]
     pub fn write_str(&mut self, data: &str) -> Result {
         self.buf.write_str(data)
     }
 
     /// Writes some formatted information into this instance
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[inline]
     pub fn write_fmt(&mut self, fmt: Arguments) -> Result {
         write(self.buf, fmt)
     }
@@ -1507,14 +1674,17 @@ impl<'a> Formatter<'a> {
 
 #[stable(since = "1.2.0", feature = "formatter_write")]
 impl<'a> Write for Formatter<'a> {
+    #[inline]
     fn write_str(&mut self, s: &str) -> Result {
         self.buf.write_str(s)
     }
 
+    #[inline]
     fn write_char(&mut self, c: char) -> Result {
         self.buf.write_char(c)
     }
 
+    #[inline]
     fn write_fmt(&mut self, args: Arguments) -> Result {
         write(self.buf, args)
     }
@@ -1597,8 +1767,13 @@ impl Debug for str {
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl Display for str {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> Result {
-        f.pad(self)
+        if f.width.is_none() && f.precision.is_none() {
+            f.write_str(self)
+        } else {
+            f.pad(self)
+        }
     }
 }
 

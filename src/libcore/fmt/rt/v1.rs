@@ -15,6 +15,7 @@
 //! these can be statically allocated and are slightly optimized for the runtime
 #![allow(missing_debug_implementations)]
 
+#[cfg(stage0)]
 #[derive(Copy, Clone)]
 pub struct Argument {
     pub position: Position,
@@ -26,7 +27,13 @@ pub struct FormatSpec {
     pub fill: char,
     pub align: Alignment,
     pub flags: u32,
+    #[cfg(not(stage0))]
+    pub precision: Option<usize>,
+    #[cfg(not(stage0))]
+    pub width: Option<usize>,
+    #[cfg(stage0)]
     pub precision: Count,
+    #[cfg(stage0)]
     pub width: Count,
 }
 
@@ -43,6 +50,7 @@ pub enum Alignment {
     Unknown,
 }
 
+#[cfg(stage0)]
 #[derive(Copy, Clone)]
 pub enum Count {
     Is(usize),
@@ -51,6 +59,7 @@ pub enum Count {
     Implied,
 }
 
+#[cfg(stage0)]
 #[derive(Copy, Clone)]
 pub enum Position {
     Next,

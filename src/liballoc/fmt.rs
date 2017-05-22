@@ -524,7 +524,11 @@ pub use core::fmt::{LowerExp, UpperExp};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::fmt::Error;
 #[stable(feature = "rust1", since = "1.0.0")]
+#[cfg(stage0)]
 pub use core::fmt::{ArgumentV1, Arguments, write};
+#[stable(feature = "rust1", since = "1.0.0")]
+#[cfg(not(stage0))]
+pub use core::fmt::{Arguments, write};
 #[stable(feature = "rust1", since = "1.0.0")]
 pub use core::fmt::{DebugList, DebugMap, DebugSet, DebugStruct, DebugTuple};
 
