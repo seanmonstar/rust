@@ -4416,6 +4416,14 @@ impl<'a, 'gcx, 'tcx> FnCtxt<'a, 'gcx, 'tcx> {
             // Case 1. Reference to a struct/variant constructor.
             Def::StructCtor(def_id, ..) |
             Def::VariantCtor(def_id, ..) => {
+
+                // While in here, tuple structs and enum variants may have
+                // deprecated fields, so check for stability.
+                let variant = self.tcx.expect_variant_def(def);
+                for field in variant.fields {
+                    self.tcx.check_stability(field.did, node_id, span);
+                }
+
                 // Everything but the final segment should have no
                 // parameters at all.
                 let mut generics = self.tcx.generics_of(def_id);

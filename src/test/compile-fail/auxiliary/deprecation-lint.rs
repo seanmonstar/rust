@@ -47,6 +47,11 @@ pub struct DeprecatedUnitStruct;
 pub enum Enum {
     #[deprecated(since = "1.0.0", note = "text")]
     DeprecatedVariant,
+    DeprecatedTupleField(
+        isize,
+        #[deprecated(since = "1.0.0", note = "text")]
+        isize
+    )
 }
 
 #[deprecated(since = "1.0.0", note = "text")]

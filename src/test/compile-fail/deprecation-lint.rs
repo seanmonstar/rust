@@ -49,6 +49,8 @@ mod cross_crate {
 
         let _ = Enum::DeprecatedVariant; //~ ERROR use of deprecated item
 
+        let _ = Enum::DeprecatedTupleField(1, 2); //~ ERROR use of deprecated item
+
         let _ = DeprecatedTupleStruct (1); //~ ERROR use of deprecated item
 
         // At the moment, the lint checker only checks stability in
@@ -98,6 +100,7 @@ mod cross_crate {
         let Stable { .. } = x;
 
         let x = Stable2(1, 2, 3);
+        //~^ ERROR use of deprecated item
 
         let _ = x.2;
         //~^ ERROR use of deprecated item
