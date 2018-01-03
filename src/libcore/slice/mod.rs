@@ -64,6 +64,15 @@ struct Repr<T> {
     pub len: usize,
 }
 
+#[allow(missing_docs)]
+impl<T> [T] {
+    pub const fn len(&self) -> usize {
+        unsafe {
+            mem::transmute::<&[T], Repr<T>>(self).len
+        }
+    }
+}
+
 //
 // Extension traits
 //

@@ -2090,6 +2090,13 @@ mod traits {
 
 }
 
+#[allow(missing_docs)]
+impl str {
+    #[inline]
+    pub const fn len(&self) -> usize {
+        unsafe { &*(self as *const str as *const [u8]) }.len()
+    }
+}
 
 /// Methods for string slices
 #[allow(missing_docs)]
