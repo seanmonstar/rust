@@ -2065,8 +2065,7 @@ impl ops::DerefMut for String {
 /// [`String`]: struct.String.html
 /// [`from_str`]: ../../std/str/trait.FromStr.html#tymethod.from_str
 #[stable(feature = "str_parse_error", since = "1.5.0")]
-#[derive(Copy)]
-pub enum ParseError {}
+pub type ParseError = core::convert::Infallible;
 
 #[stable(feature = "rust1", since = "1.0.0")]
 impl FromStr for String {

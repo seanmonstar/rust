@@ -401,6 +401,10 @@ pub trait TryFrom<T>: Sized {
     fn try_from(value: T) -> Result<Self, Self::Error>;
 }
 
+//TODO: When stabilizing never_type, this should be removed.
+#[unstable(feature = "never_type", issue = "35121")]
+pub enum Infallible {}
+
 ////////////////////////////////////////////////////////////////////////////////
 // GENERIC IMPLS
 ////////////////////////////////////////////////////////////////////////////////
@@ -479,7 +483,7 @@ impl<T, U> TryInto<U> for T where U: TryFrom<T>
 // with an uninhabited error type.
 #[unstable(feature = "try_from", issue = "33417")]
 impl<T, U> TryFrom<U> for T where T: From<U> {
-    type Error = !;
+    type Error = Infallible;
 
     fn try_from(value: U) -> Result<Self, Self::Error> {
         Ok(T::from(value))
